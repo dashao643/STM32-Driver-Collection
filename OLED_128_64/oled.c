@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "gpio.h"
 
@@ -124,20 +123,18 @@ void OLED_Show_String(uint8_t x, uint8_t y, uint8_t *str) {
     i++;
   }
 }
-//此函数需要传入数据的位数，从低位开始显示，目的是更新显示区域 maxLen: 1 - 10
+//此函数需要传入数据的位数，从低位开始显示，目的是更新显示区域 maxLen: 1 - 11
 void OLED_Show_DecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t maxLen) {
   if (x == 0 || x > 4)
     return;
   if (y == 0 || y > 16)
     return;
-  if (maxLen == 0 || maxLen > 10)
-    maxLen = 10;
-  char buf[12] = {0};  // int32_t 最大值 + 负号 + \0
-  //目标缓冲区, 缓冲区长度, 格式符, 要转换的数字
-  if (number >= 0)
-    snprintf(buf, sizeof(buf), "%0*ld", maxLen, (long)number);
-  else
-    snprintf(buf, sizeof(buf), "-%0*ld", maxLen, (long)abs(number));
+  if (maxLen == 0 || maxLen > 11)
+    maxLen = 11;
 
-  OLED_Show_String(x, y, (uint8_t*)buf);
+  uint8_t buf[12] = {0};  // int32_t 最大值 + 负号 + \0
+
+  snprintf(buf, sizeof(buf), "%0*d", maxLen, (int)number);
+
+  OLED_Show_String(x, y, buf);
 }
