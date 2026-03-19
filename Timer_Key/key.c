@@ -6,11 +6,11 @@
 uint8_t keyReadFlag = 0;
 
 // 定义按键引脚表，匹配循环中的组数
-static GPIO_TypeDef *key_ports[KEY_CNT] = {KEY_UP1_GPIO_Port,KEY_UP2_GPIO_Port};
-static const uint16_t key_pins[KEY_CNT] = {KEY_UP1_Pin, KEY_UP2_Pin};
+static GPIO_TypeDef *key_ports[KEY_CNT] = {KEY_UP1_GPIO_Port,KEY_UP2_GPIO_Port,KEY_UP3_GPIO_Port};
+static const uint16_t key_pins[KEY_CNT] = {KEY_UP1_Pin,KEY_UP2_Pin,KEY_UP3_Pin};
 
-// static GPIO_TypeDef *key_ports[KEY_CNT] = {KEY_DOWN1_GPIO_Port,KEY_DOWN2_GPIO_Port};
-// static const uint16_t key_pins[KEY_CNT] = {KEY_DOWN1_Pin, KEY_DOWN2_Pin};
+// static GPIO_TypeDef *key_ports[KEY_CNT] = {KEY_DOWN1_GPIO_Port,KEY_DOWN2_GPIO_Port,KEY_DOWN3_GPIO_Port};
+// static const uint16_t key_pins[KEY_CNT] = {KEY_DOWN1_Pin,KEY_DOWN2_Pin,KEY_DOWN3_Pin};
 
 static GPIO_PinState preState[KEY_CNT];
 static GPIO_PinState curState[KEY_CNT];

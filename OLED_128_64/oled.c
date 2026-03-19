@@ -107,7 +107,7 @@ void OLED_Show_Char(uint8_t x, uint8_t y, char ch) {
 }
 
 // 显示字符串,创建字符串推荐手动加\0,或者不要指定数组长度
-void OLED_Show_String(uint8_t x, uint8_t y, uint8_t *str) {
+void OLED_Show_String(uint8_t x, uint8_t y, char str[]) {
   if (str == NULL)
     return;
   if (x == 0 || x > 4)
@@ -132,7 +132,7 @@ void OLED_Show_DecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t maxLen) {
   if (maxLen == 0 || maxLen > 11)
     maxLen = 11;
 
-  uint8_t buf[12] = {0};  // int32_t 最大值 + 负号 + \0
+  char buf[12] = {0};  // int32_t 最大值 + 负号 + \0
 
   snprintf(buf, sizeof(buf), "%0*d", maxLen, (int)number);
 
