@@ -31,10 +31,9 @@ void PWM_LED_Init(void)
 
 void PWM_Encoder_Init(void)
 {
-  HAL_TIM_Base_Start_IT(PWM_ENCODER_HANDLE);
-  // 开启编码器输入中断，固定为通道1和通道2
-  HAL_TIM_Encoder_Start_IT(PWM_ENCODER_HANDLE, TIM_CHANNEL_1);
-  HAL_TIM_Encoder_Start_IT(PWM_ENCODER_HANDLE, TIM_CHANNEL_2);
+  HAL_TIM_Base_Start(PWM_ENCODER_HANDLE);
+  // 开启编码器输入模式
+  HAL_TIM_Encoder_Start(PWM_ENCODER_HANDLE, TIM_CHANNEL_ALL);
 }
 
 /**
