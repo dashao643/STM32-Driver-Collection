@@ -1,19 +1,18 @@
 #include "dht11.h"
+#include "general.h"
 #include "stm32f1xx_hal.h"
-#include <stdint.h>
-#include <stdbool.h>
 
-#include "oled.h"
-#include "gpio.h"
-#include "myUsart.h"
+#include <stdio.h>
+#include <string.h>
+
+static DHT11_HandleTypeDef dht11;
 
 static void DHT11_SetOutput(void);
 static void DHT11_SetInput(void);
-static void DHT11_Start(void);
 static bool DHT11_WaitState(GPIO_PinState pinState,const uint8_t timeout_us);
 static bool DHT11_ReadResponse(void);
 static uint8_t DHT11_ReadByte(void);
-static bool DHT11_checkSum(const uint8_t arr[]);
+static bool DHT11_checkSum(void);
 
 // DHT11_Pin 初始：输出模式，高电平
 
@@ -50,21 +49,6 @@ static void DHT11_SetInput(void)
 }
 
 /**
- * @brief DHT11发送起始信号
- * 
- */
-static void DHT11_Start(void)
-{
-  DHT11_SetOutput();
-  // 拉低18-30ms
-  DHT11_LOW();
-  HAL_Delay(20);
-  // 拉高10-35us
-  DHT11_HIGH();
-  DHT11_Delay_us(13);
-}
-
-/**
  * @brief 等待DHT11置电平
  * 
  * @param pinState 期望的总线电平
@@ -77,7 +61,7 @@ static bool DHT11_WaitState(GPIO_PinState pinState,const uint8_t timeout_us)
   uint8_t curTime = 0;
   while(DHT11_PIN_READ() != pinState){
     curTime++;
-    DHT11_Delay_us(1);
+    Delay_us(1);
     if (curTime > timeout_us) 
       return false;
   }
@@ -90,7 +74,7 @@ static bool DHT11_WaitState(GPIO_PinState pinState,const uint8_t timeout_us)
  * @return true 读取成功
  * @return false 读取失败，无回应
  */
-static bool DHT11_ReadResponse()
+static bool DHT11_ReadResponse(void)
 {
   DHT11_SetInput();
 
@@ -125,7 +109,7 @@ static uint8_t DHT11_ReadByte(void)
       // OLED_Show_String(2, 1, "data fail_2");
       return aByte;
     }
-    DHT11_Delay_us(40);
+    Delay_us(40);
     // 延时以后读到高为bit1。低为bit0，直接跳过
     aByte <<= 1;
     if(DHT11_PIN_READ() == GPIO_PIN_SET)
@@ -134,91 +118,99 @@ static uint8_t DHT11_ReadByte(void)
   return aByte;
 }
 
-/**
- * @brief 校验和
- * 
- * @param arr 包含固定四个字节的数组
- * @return true 校验成功
- * @return false 校验失败
- */
-static bool DHT11_checkSum(const uint8_t arr[])
+static bool DHT11_checkSum(void)
 {
   uint8_t checkSum = 0;
-  for(uint8_t j = 0; j < 4; j++)
-    checkSum += arr[j];
+  for(uint8_t i = 0; i < 4; i++)
+    checkSum += dht11.data_buf[i];
 
-  if(checkSum != arr[4])
+  if(checkSum != dht11.data_buf[4])
     return false;
 
   return true;
 } 
 
-/**
- * @brief 读取DHT11的温湿度
- * 
- * @param temp 温度数据地址
- * @param humi 湿度数据地址
- */
-void DHT11_ReadData(uint8_t *temp, uint8_t *humi)
+void DHT11_Init(void)
 {
-  uint8_t dataArr[5] = {0};
-
-  DHT11_Start();
-
-  if(DHT11_ReadResponse() == false){
-#ifdef OLED_DEBUG
-    OLED_ShowString(2, 1, "no response");
-    // LED_GREEN_TOGGLE();
-#endif
-    return;
-  }
-  // 获取数据
-  for(uint8_t i = 0; i < 5; i++)
-    dataArr[i] = DHT11_ReadByte();
-  // 校验和
-  if(DHT11_checkSum(dataArr) == false){
-#ifdef OLED_DEBUG
-    OLED_ShowString(2, 1, "checkSum error");
-#endif
-
-#ifdef LED_DEBUG
-    LED_RED_TOGGLE();
-#endif
-    return;
-  }
-  *humi = dataArr[0];
-  *temp = dataArr[2];
-  
-#ifdef USART1_DEBUG
-  Usart1_Transmit(dataArr,sizeof(dataArr),100);
-#endif
+  // 清空整个句柄
+  memset(&dht11, 0, sizeof(DHT11_HandleTypeDef));
+  dht11.state = DHT11_STATE_IDLE;
+  dht11.last_read_tick = HAL_GetTick();
+  dht11.humidity = 0x00;
+  dht11.temperature = 0x00;
+  dht11.data_valid = false;
+  memset(dht11.data_buf,0,sizeof(dht11.data_buf));
 }
 
-/**
- * @brief 微秒级延时，最长900us
- * 
- * @param us 微秒
- */
-void DHT11_Delay_us(__IO uint32_t delay)
+void DHT11_Task(void)
 {
-  int last, cur, val;
-  int temp;
-
-  while (delay != 0){
-    temp = delay > 900 ? 900 : delay;
-    last = SysTick->VAL;
-    cur = last - CLOCK_FREQUENCY_MHZ * temp;
-    if (cur >= 0){
-      do
-        val = SysTick->VAL;
-      while ((val < last) && (val >= cur));
+  switch (dht11.state) {
+    case DHT11_STATE_IDLE:{
+      dht11.data_valid = false;
+      if((HAL_GetTick() - dht11.last_read_tick) > DHT11_READ_INTERVAL_MS){
+        dht11.last_read_tick = HAL_GetTick();
+        dht11.state = DHT11_STATE_START_LOW;
+      }
+      break;
     }
-    else{
-      cur += CLOCK_FREQUENCY_MHZ * 1000;
-      do
-        val = SysTick->VAL;
-      while ((val <= last) || (val > cur));
+    case DHT11_STATE_START_LOW:{
+      DHT11_SetOutput();
+      DHT11_PIN_LOW();
+      dht11.start_tick = HAL_GetTick();
+      dht11.state = DHT11_STATE_START_HIGH;
+      break;
     }
-    delay -= temp;
+    case DHT11_STATE_START_HIGH:{
+      if ((HAL_GetTick() - dht11.start_tick) >= DHT11_Start_MS) {
+        DHT11_PIN_HIGH();
+        Delay_us(13);
+        dht11.state = DHT11_STATE_WAIT_ACK;
+      }
+      break;
+    }
+    case DHT11_STATE_WAIT_ACK:{
+      if(DHT11_ReadResponse())
+        dht11.state = DHT11_STATE_READ_DATA;
+      else{
+        printf("dht11 no response\n");
+        dht11.state = DHT11_STATE_IDLE;
+      }
+      break;
+    }
+    case DHT11_STATE_READ_DATA:{
+      for(uint8_t i = 0; i < 5; i++)
+        dht11.data_buf[i] = DHT11_ReadByte();
+      dht11.state = DHT11_STATE_CHECK;
+      break;
+    }
+    case DHT11_STATE_CHECK:{
+      if(DHT11_checkSum()){
+        dht11.humidity = dht11.data_buf[0];
+        dht11.temperature = dht11.data_buf[2];
+        dht11.data_valid = true;
+      }
+      else{
+        printf("dht11 checkSum error\n");
+      }
+      dht11.state = DHT11_STATE_IDLE;
+      break;
+    }
+    default:
+      dht11.state = DHT11_STATE_IDLE;
+      break;
   }
+}
+
+bool DHT11_IsDataValid(void)
+{
+  return dht11.data_valid;
+}
+
+uint8_t DHT11_GetHumidity(void)
+{
+  return dht11.humidity;
+}
+uint8_t DHT11_GetTemperature(void)
+{
+  return dht11.temperature;
 }
