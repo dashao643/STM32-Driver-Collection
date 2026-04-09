@@ -5,11 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define LED_DEBUG   // LED调试
-#define OLED        // OLED显示信息
-
 #define DHT11_READ_INTERVAL_MS      2000      // 读取间隔(单位：毫秒)
-#define DHT11_Start_MS              20        // 起始信号拉低时长
+#define DHT11_Start_MS              20        // 拉低时长18-35(单位：毫秒)
 
 typedef enum {
   DHT11_STATE_IDLE = 0,     // 空闲
