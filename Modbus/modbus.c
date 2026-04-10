@@ -5,10 +5,14 @@
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
 
+#include <stdio.h>
 #include <string.h>
+
+#include "gpio.h"
 
 static Modbus_Uart_HandleTypeDef modbus;
 static Modbus_Frame_Record modbusRecord;
+static Modbus_StateTypeDef state = MODBUS_STATE_IDLE;
 
 static uint8_t modbus_tx_buff[MODBUS_TX_BUFF_MAXLENTH];
 static uint8_t modbus_tx_index = 0;
@@ -29,6 +33,7 @@ static void frameReply(void);
 
 static void clearRxBuffer(void)
 {
+  memset(modbus.buffer, 0, MODBUS_RX_BUFF_MAXLENTH);
   modbus.index = 0;
   modbus.overflow = false;
   modbus.frameEnd = false;
@@ -76,10 +81,14 @@ static bool funcCheck(void)
   //   break;
   // }
   case MODBUS_FUNC_READ_INPUT_REGS:{
+    if(modbus.index != MODBUS_RX_BUFF_MINLENTH)
+      return false;
     modbusRecord.isRead = true;
     break;
   }
   case MODBUS_FUNC_WRITE_SINGLE_COIL:{
+    if(modbus.index != MODBUS_RX_BUFF_MAXLENTH)
+      return false;
     modbusRecord.isRead = false;
     break;
   }
@@ -95,7 +104,6 @@ static bool funcCheck(void)
   default:
     return false;
   }
-
   modbusRecord.funcCode = modbus.buffer[1];
   return true;
 }
@@ -166,84 +174,88 @@ static void errorFrameReply(uint8_t errorCode)
  */
 static void frameCheck(void)
 {
-  Modbus_StateTypeDef state = MODBUS_STATE_IDLE;
-  while(1){
-    switch (state) {
-    case MODBUS_STATE_IDLE:{
-      if(!lengthCheck())
-        return;
+  switch (state) {
+  case MODBUS_STATE_IDLE:{
+    if(lengthCheck())
       state = MODBUS_STATE_ADDR;
-      break;
-    }
-    case MODBUS_STATE_ADDR:{
-      if(!addressCheck())
-        return;
+    else
+      state = MODBUS_STATE_RESET;
+    break;
+  }
+  case MODBUS_STATE_ADDR:{
+    if(addressCheck())
       state = MODBUS_STATE_FUNC;
-      break;
-    }
-    case MODBUS_STATE_FUNC:{
-      if(!funcCheck()){
-        errorFrameReply(MODBUS_FUNC_ERROR);
-        return;
-      }
+    else
+      state = MODBUS_STATE_RESET;
+    break;
+  }
+  case MODBUS_STATE_FUNC:{
+    if(funcCheck())
       state = MODBUS_STATE_REG_ADDR;
-      break;
+    else{
+      errorFrameReply(MODBUS_FUNC_ERROR);
+      state = MODBUS_STATE_RESET;
     }
-    case MODBUS_STATE_REG_ADDR:{
-      if(!regArrCheck()){
-        errorFrameReply(MODBUS_REGS_ARR_ERROR);
-        return;
-      }
+    break;
+  }
+  case MODBUS_STATE_REG_ADDR:{
+    if(regArrCheck())
       state = MODBUS_STATE_REG_CNT;
-      break;
+    else{
+      errorFrameReply(MODBUS_REGS_ARR_ERROR);
+      state = MODBUS_STATE_RESET;
     }
-    case MODBUS_STATE_REG_CNT:{
-      if(!regCntCheck()){
-        errorFrameReply(MODBUS_REGS_CNT_ERROR);
-        return;
-      }
-      // 读操作
+    break;
+  }
+  case MODBUS_STATE_REG_CNT:{
+    if(regCntCheck()){
       if(modbusRecord.isRead)
         state = MODBUS_STATE_CRC;
-      // 写操作
       else
         state = MODBUS_STATE_DATA;
-      break;
     }
-    case MODBUS_STATE_DATA:{
-      if(!opDataCheck()){
-        errorFrameReply(MODBUS_OP_DATA_ERROR);
-        return;
-      }
+    else{
+      errorFrameReply(MODBUS_REGS_CNT_ERROR);
+      state = MODBUS_STATE_RESET;
+    }
+    break;
+  }
+  case MODBUS_STATE_DATA:{
+    if(opDataCheck())
       state = MODBUS_STATE_CRC;
-      break;
+    else{
+      errorFrameReply(MODBUS_OP_DATA_ERROR);
+      state = MODBUS_STATE_RESET;
     }
-    case MODBUS_STATE_CRC:{
-      if(!crcCheck())
-        return;
+    break;
+  }
+  case MODBUS_STATE_CRC:{
+    if(crcCheck())
       state = MODBUS_STATE_PROCESS;
-      break;
-    }
-    case MODBUS_STATE_PROCESS:{
-      frameProcess();
-      state = MODBUS_STATE_REPLY;
-      break;
-    }
-    case MODBUS_STATE_REPLY:{
-      frameReply();
-      state = MODBUS_STATE_REPLY;
-      break;
-    }
-    case MODBUS_STATE_RESET:{
-      clearRxBuffer();
-      clearRecord();
-      modbus_tx_index = 0;
-      state = MODBUS_STATE_IDLE;
-      return;
-    }
-    default:
-      return;
-    }
+    else
+      state = MODBUS_STATE_RESET;
+    break;
+  }
+  case MODBUS_STATE_PROCESS:{
+    frameProcess();
+    state = MODBUS_STATE_REPLY;
+    break;
+  }
+  case MODBUS_STATE_REPLY:{
+    frameReply();
+    state = MODBUS_STATE_RESET;
+    break;
+  }
+  case MODBUS_STATE_RESET:{
+    clearRxBuffer();
+    clearRecord();
+    memset(modbus_tx_buff, 0, MODBUS_TX_BUFF_MAXLENTH);
+    modbus_tx_index = 0;
+    state = MODBUS_STATE_IDLE;
+    break;
+  }
+  default:
+    break;
   }
 }
 
@@ -312,6 +324,8 @@ static void frameReply(void)
   }
   else{
     memcpy(modbus_tx_buff, modbus.buffer, modbus.index);
+    modbus_tx_index = modbus.index;
+    // printf("modbus.index=%d\n",modbus.index);
   }
   HAL_UART_Transmit(MODBUS_UARTX,modbus_tx_buff,modbus_tx_index,MODBUS_UARTX_TIMEOUT);
 }
@@ -352,10 +366,10 @@ void Modbus_UART_SingleByte(void)
 void Modbus_UART_Task(void)
 {
   if(modbus.frameEnd){
-    // 先中止正在进行的接收（强制把 HAL 状态恢复为 READY，使中断接收开启一定生效）
-    HAL_UART_AbortReceive_IT(MODBUS_UARTX);
     frameCheck();
 
+    // 先中止正在进行的接收（强制把 HAL 状态恢复为 READY，使中断接收开启一定生效）
+    HAL_UART_AbortReceive_IT(MODBUS_UARTX);
     HAL_UART_Receive_IT(MODBUS_UARTX, modbus.buffer, 1);
   }
 }

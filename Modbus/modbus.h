@@ -6,7 +6,7 @@
 
 #define MODBUS_UARTX                    &huart1
 #define MODBUS_UARTX_TIMEOUT            500
-#define MODBUS_RX_BUFF_MAXLENTH         10      // 最大帧长度
+#define MODBUS_RX_BUFF_MAXLENTH         9       // 最大帧长度
 #define MODBUS_RX_BUFF_MINLENTH         8       // 最小帧长度
 #define MODBUS_TX_BUFF_MAXLENTH         16      // 回复帧最大帧长
 

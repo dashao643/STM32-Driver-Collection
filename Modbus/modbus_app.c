@@ -26,6 +26,7 @@ bool Modbus_App_Check_WriteValue(uint8_t value)
 
 void Modbus_App_Write_Coil(uint16_t addr, uint8_t value)
 {
+#ifdef LED
   if(addr == LED_RED){
     if(value == MODBUS_RESET) LED_RED_OFF();
     else if(value == MODBUS_SET) LED_RED_ON();
@@ -41,13 +42,16 @@ void Modbus_App_Write_Coil(uint16_t addr, uint8_t value)
     else if(value == MODBUS_SET) LED_BLUE_ON();
     else LED_BLUE_TOGGLE();
   }
+#endif
 }
 
 uint16_t Modbus_App_Read_InputReg(uint16_t addr)
 {
+#ifdef DHT11
   if(addr == DHT11_TEMP) 
     return DHT11_GetTemperature();
   if(addr == DHT11_HUMI) 
     return DHT11_GetHumidity();
+#endif
   return 0;
 }

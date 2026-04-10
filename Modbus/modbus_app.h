@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define LED
+#define DHT11
+
 // 寄存器地址定义
 #define LED_RED		      0x0001
 #define LED_GREEN 	    0x0002
