@@ -9,11 +9,11 @@
 4. PWM常用案例
 5. Modbus简易协议通信（支持04、05功能码）
 6. RTC外设实时时钟
+7. 数码管驱动
 
 ## 未来：
-7. 蓝牙、WiFi、4G、2.4G、LoRa、NB、Zigbee
-8. IAP、OTA升级
-9. 数码管驱动
+8. 蓝牙、WiFi、4G、2.4G、LoRa、NB、Zigbee
+9. IAP、OTA升级
 10. DS18B20驱动
 11. PID电机控制
 12. CAN通信测试

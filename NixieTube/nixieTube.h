@@ -1,0 +1,69 @@
+#ifndef __NIXIETUBE_H__
+#define __NIXIETUBE_H__
+
+#include "main.h"
+
+#include "stdint.h"
+#include <stdint.h>
+
+// 4位数码管，BCD码解析
+
+//选择数码管极性
+#define COMMON_ANODE    // 共阳极
+// #define COMMON_CATHODE  // 共阴极
+
+#ifdef COMMON_ANODE
+#define DIG_ON           GPIO_PIN_SET
+#define DIG_OFF          GPIO_PIN_RESET
+#define NIXIE_TUBE_ON    GPIO_PIN_RESET
+#define NIXIE_TUBE_OFF   GPIO_PIN_SET
+#endif 
+
+#ifdef COMMON_CATHODE
+#define DIG_ON           GPIO_PIN_RESET
+#define DIG_OFF          GPIO_PIN_SET
+#define NIXIE_TUBE_ON    GPIO_PIN_SET
+#define NIXIE_TUBE_OFF   GPIO_PIN_RESET
+#endif 
+
+#define DIG1_ON() HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, DIG_ON)
+#define DIG1_OFF() HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, DIG_OFF)
+
+#define DIG2_ON() HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, DIG_ON)
+#define DIG2_OFF() HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, DIG_OFF)
+
+#define DIG3_ON() HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, DIG_ON)
+#define DIG3_OFF() HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, DIG_OFF)
+
+#define DIG4_ON() HAL_GPIO_WritePin(DIG4_GPIO_Port, DIG4_Pin, DIG_ON)
+#define DIG4_OFF() HAL_GPIO_WritePin(DIG4_GPIO_Port, DIG4_Pin, DIG_OFF)
+
+#define NIXIE_TUBE_A_ON() HAL_GPIO_WritePin(NIXIE_TUBE_A_GPIO_Port, NIXIE_TUBE_A_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_A_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_A_GPIO_Port, NIXIE_TUBE_A_Pin, NIXIE_TUBE_OFF)
+
+#define NIXIE_TUBE_B_ON() HAL_GPIO_WritePin(NIXIE_TUBE_B_GPIO_Port, NIXIE_TUBE_B_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_B_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_B_GPIO_Port, NIXIE_TUBE_B_Pin, NIXIE_TUBE_OFF)
+
+#define NIXIE_TUBE_C_ON() HAL_GPIO_WritePin(NIXIE_TUBE_C_GPIO_Port, NIXIE_TUBE_C_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_C_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_C_GPIO_Port, NIXIE_TUBE_C_Pin, NIXIE_TUBE_OFF)
+
+#define NIXIE_TUBE_D_ON() HAL_GPIO_WritePin(NIXIE_TUBE_D_GPIO_Port, NIXIE_TUBE_D_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_D_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_D_GPIO_Port, NIXIE_TUBE_D_Pin, NIXIE_TUBE_OFF)
+
+#define NIXIE_TUBE_E_ON() HAL_GPIO_WritePin(NIXIE_TUBE_E_GPIO_Port, NIXIE_TUBE_E_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_E_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_E_GPIO_Port, NIXIE_TUBE_E_Pin, NIXIE_TUBE_OFF)
+
+#define NIXIE_TUBE_F_ON() HAL_GPIO_WritePin(NIXIE_TUBE_F_GPIO_Port, NIXIE_TUBE_F_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_F_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_F_GPIO_Port, NIXIE_TUBE_F_Pin, NIXIE_TUBE_OFF)
+
+#define NIXIE_TUBE_G_ON() HAL_GPIO_WritePin(NIXIE_TUBE_G_GPIO_Port, NIXIE_TUBE_G_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_G_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_G_GPIO_Port, NIXIE_TUBE_G_Pin, NIXIE_TUBE_OFF)
+
+#define NIXIE_TUBE_DP_ON() HAL_GPIO_WritePin(NIXIE_TUBE_DP_GPIO_Port, NIXIE_TUBE_DP_Pin, NIXIE_TUBE_ON)
+#define NIXIE_TUBE_DP_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_DP_GPIO_Port, NIXIE_TUBE_DP_Pin, NIXIE_TUBE_OFF)
+
+void NixieTube_ShowTask2(uint8_t num1, uint8_t num2);
+void NixieTube_ShowTask1(uint16_t num);
+
+#endif
+
