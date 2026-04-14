@@ -3,14 +3,15 @@
 
 #include "main.h"
 
-#include "stdint.h"
 #include <stdint.h>
-
-// 4位数码管，BCD码解析
+#include <stdbool.h>
 
 //选择数码管极性
-#define COMMON_ANODE    // 共阳极
-// #define COMMON_CATHODE  // 共阴极
+#define COMMON_ANODE        // 共阳极
+// #define COMMON_CATHODE   // 共阴极
+
+// 4位数码管
+#define DIGIT_CNT        4    
 
 #ifdef COMMON_ANODE
 #define DIG_ON           GPIO_PIN_SET
@@ -62,6 +63,21 @@
 #define NIXIE_TUBE_DP_ON() HAL_GPIO_WritePin(NIXIE_TUBE_DP_GPIO_Port, NIXIE_TUBE_DP_Pin, NIXIE_TUBE_ON)
 #define NIXIE_TUBE_DP_OFF() HAL_GPIO_WritePin(NIXIE_TUBE_DP_GPIO_Port, NIXIE_TUBE_DP_Pin, NIXIE_TUBE_OFF)
 
+// 位选枚举
+typedef enum{
+  DIGIT_1 = 1,
+  DIGIT_2,
+  DIGIT_3,
+  DIGIT_4
+}NixieTube_DigitTypeDef;
+
+typedef struct{
+  NixieTube_DigitTypeDef digX;
+  bool updateFlag;
+}NixieTube_HandleTypeDef;
+
+void NixieTube_Init(void);
+void NixieTube_SetUpdateFlag(void);
 void NixieTube_ShowTask2(uint8_t num1, uint8_t num2);
 void NixieTube_ShowTask1(uint16_t num);
 

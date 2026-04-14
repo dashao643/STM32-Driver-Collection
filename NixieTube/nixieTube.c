@@ -1,8 +1,9 @@
 #include "nixieTube.h"
-#include <stdbool.h>
 
-// 关闭所有位
-static void closeAllBit(void)
+static NixieTube_HandleTypeDef nixieTube = {0};
+
+// 关闭所有位选
+static void closeAllDigit(void)
 {
   DIG1_OFF();
   DIG2_OFF();
@@ -10,8 +11,8 @@ static void closeAllBit(void)
   DIG4_OFF();
 }
 
-// 清空所有段（全部熄灭）
-static void clearAll(void)
+// 关闭所有位段
+static void closeAllSegment(void)
 {
   NIXIE_TUBE_A_OFF();
   NIXIE_TUBE_B_OFF();
@@ -23,9 +24,9 @@ static void clearAll(void)
   NIXIE_TUBE_DP_OFF();
 }
 
-static void displayNum(uint8_t num)
+static void openSegment(uint8_t num)
 {
-  clearAll();
+  closeAllSegment();
 
   switch(num)
   {
@@ -72,22 +73,19 @@ static void displayNum(uint8_t num)
   }
 }
 
-// 先关所有位（消隐）
-// 先设置段码
-// 再开启对应位
+// 关闭所有位选（消隐），设置段码，开启对应位显示数字
 
-// 显示某一位
-static void displayBit(uint8_t bit, uint8_t num)
+static void openDigitNum(uint8_t num)
 {
-  closeAllBit();
+  closeAllDigit();
 
-  displayNum(num);
+  openSegment(num);
 
-  switch(bit){
-    case 1: DIG1_ON(); break;
-    case 2: DIG2_ON(); break;
-    case 3: DIG3_ON(); break;
-    case 4: DIG4_ON(); break;
+  switch(nixieTube.digX){
+    case DIGIT_1: DIG1_ON(); break;
+    case DIGIT_2: DIG2_ON(); break;
+    case DIGIT_3: DIG3_ON(); break;
+    case DIGIT_4: DIG4_ON(); break;
     default: return;
   }
 }
@@ -104,14 +102,35 @@ static uint8_t byteToBcd2(uint8_t Value)
   return ((uint8_t)(bcdhigh << 4U) | Value);
 }
 
+void NixieTube_Init(void)
+{
+  nixieTube.digX = 0;
+  nixieTube.updateFlag = false;
+}
+
+/**
+ * @brief 定时器1毫秒调用一次。digX = 1 ~ DIGIT_CNT 不断循环
+ * 
+ */
+
+void NixieTube_SetUpdateFlag(void)
+{
+  nixieTube.updateFlag = true;
+  nixieTube.digX = (nixieTube.digX % DIGIT_CNT) + 1;
+}
+
 /**
  * @brief 显示两个两位数,范围0-99
  * 
  */
 void NixieTube_ShowTask2(uint8_t num1, uint8_t num2)
 {
+  if(!nixieTube.updateFlag)
+    return;
+  
   if(num1 > 99) num1 = 99;
   if(num2 > 99) num2 = 99;
+
   num1 = byteToBcd2(num1);
   num2 = byteToBcd2(num2);
 
@@ -121,14 +140,14 @@ void NixieTube_ShowTask2(uint8_t num1, uint8_t num2)
   uint8_t num2L = num2 >> 4;
   uint8_t num2R = num2 & 0xF;
 
-  displayBit(1,num1L);
-  HAL_Delay(1);
-  displayBit(2,num1R);
-  HAL_Delay(1);
-  displayBit(3,num2L);
-  HAL_Delay(1);
-  displayBit(4,num2R);
-  HAL_Delay(1);
+  switch(nixieTube.digX){
+  case DIGIT_1: openDigitNum(num1L); break;
+  case DIGIT_2: openDigitNum(num1R); NIXIE_TUBE_DP_ON(); break;
+  case DIGIT_3: openDigitNum(num2L); break;
+  case DIGIT_4: openDigitNum(num2R); break;
+  }
+
+  nixieTube.updateFlag = false;
 }
 
 /**
@@ -137,6 +156,23 @@ void NixieTube_ShowTask2(uint8_t num1, uint8_t num2)
  */
 void NixieTube_ShowTask1(uint16_t num)
 {
+  if(!nixieTube.updateFlag)
+    return;
+
   if(num > 9999)
     num = 9999;
+
+  uint8_t digit1 = (num / 1000) % 10;   // 千位
+  uint8_t digit2 = (num / 100) % 10;    // 百位
+  uint8_t digit3 = (num / 10) % 10;     // 十位
+  uint8_t digit4 = num % 10;            // 个位
+
+  switch(nixieTube.digX){
+  case DIGIT_1: openDigitNum(digit1); break;
+  case DIGIT_2: openDigitNum(digit2); break;
+  case DIGIT_3: openDigitNum(digit3); break;
+  case DIGIT_4: openDigitNum(digit4); break;
+  }
+
+  nixieTube.updateFlag = false;
 }
