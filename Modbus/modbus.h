@@ -6,8 +6,9 @@
 
 #define MODBUS_UARTX                    &huart1
 #define MODBUS_UARTX_TIMEOUT            500
-#define MODBUS_RX_BUFF_MAXLENTH         9       // 最大帧长度
+#define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
 #define MODBUS_RX_BUFF_MINLENTH         8       // 最小帧长度
+#define MODBUS_SINGLE_WRITE_LENTH       9       // 单写操作帧长
 #define MODBUS_TX_BUFF_MAXLENTH         16      // 回复帧最大帧长
 
 #define MODBUS_SLAVE_ADDR               0x01    // 从机地址
@@ -17,9 +18,9 @@
 #define MODBUS_FUNC_READ_HOLD_REGS      0x03    // 读保持寄存器（可读可写变量）
 #define MODBUS_FUNC_READ_INPUT_REGS     0x04    // 读输入寄存器（只读变量）       // 支持
 #define MODBUS_FUNC_WRITE_SINGLE_COIL   0x05    // 写单个线圈                    // 支持
-#define MODBUS_FUNC_WRITE_SINGLE_REG    0x06    // 写单个保持寄存器
+#define MODBUS_FUNC_WRITE_SINGLE_REG    0x06    // 写单个保持寄存器              
 #define MODBUS_FUNC_WRITE_MULTI_COILS   0x0F    // 写多个线圈
-#define MODBUS_FUNC_WRITE_MULTI_REGS    0x10    // 写多个保持寄存器     
+#define MODBUS_FUNC_WRITE_MULTI_REGS    0x10    // 写多个保持寄存器               // 正在支持
 
 // 错误码
 #define MODBUS_FUNC_ERROR               0x01    // 非法功能码
@@ -38,11 +39,11 @@ typedef struct{
 typedef enum {
   MODBUS_STATE_IDLE = 0,        // 空闲，等待一帧开始
   MODBUS_STATE_ADDR,            // 接收并校验从机地址
+  MODBUS_STATE_CRC,             // 校验CRC
   MODBUS_STATE_FUNC,            // 接收功能码
   MODBUS_STATE_REG_ADDR,        // 寄存器地址
   MODBUS_STATE_REG_CNT,         // 寄存器数量
   MODBUS_STATE_DATA,            // 接收数据段（写操作用到）（一个字节）
-  MODBUS_STATE_CRC,             // 校验CRC
   MODBUS_STATE_PROCESS,         // 执行功能（读取数据/控制IO）
   MODBUS_STATE_REPLY,           // 构造回复帧
   MODBUS_STATE_RESET            // 重置状态机，准备下一帧

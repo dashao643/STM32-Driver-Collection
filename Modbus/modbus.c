@@ -71,38 +71,27 @@ static bool addressCheck(void)
 static bool funcCheck(void)
 {
   switch (modbus.buffer[1]) {
-  // case MODBUS_FUNC_READ_COILS:{
-  //   break;
-  // }
-  // case MODBUS_FUNC_READ_DISCRETE_INPUT:{
-  //   break;
-  // }
-  // case MODBUS_FUNC_READ_HOLD_REGS:{
-  //   break;
-  // }
-  case MODBUS_FUNC_READ_INPUT_REGS:{
-    if(modbus.index != MODBUS_RX_BUFF_MINLENTH)
-      return false;
-    modbusRecord.isRead = true;
-    break;
-  }
-  case MODBUS_FUNC_WRITE_SINGLE_COIL:{
-    if(modbus.index != MODBUS_RX_BUFF_MAXLENTH)
-      return false;
-    modbusRecord.isRead = false;
-    break;
-  }
-  // case MODBUS_FUNC_WRITE_SINGLE_REG:{
-  //   break;
-  // }
-  // case MODBUS_FUNC_WRITE_MULTI_COILS:{
-  //   break;
-  // }
-  // case MODBUS_FUNC_WRITE_MULTI_REGS:{
-  //   break;
-  // }
-  default:
-    return false;
+    // 读操作，数据长度为最小
+    case MODBUS_FUNC_READ_COILS:
+    case MODBUS_FUNC_READ_DISCRETE_INPUT:
+    case MODBUS_FUNC_READ_HOLD_REGS:
+    case MODBUS_FUNC_READ_INPUT_REGS:{
+      if(modbus.index != MODBUS_RX_BUFF_MINLENTH)
+        return false;
+      modbusRecord.isRead = true;
+      break;
+      }
+    // 单写操作
+    case MODBUS_FUNC_WRITE_SINGLE_COIL:
+    case MODBUS_FUNC_WRITE_SINGLE_REG:
+      if(modbus.index != MODBUS_SINGLE_WRITE_LENTH)
+        return false;
+    case MODBUS_FUNC_WRITE_MULTI_COILS:
+    case MODBUS_FUNC_WRITE_MULTI_REGS:{
+      modbusRecord.isRead = false;
+      break;
+    }
+    default: return false;
   }
   modbusRecord.funcCode = modbus.buffer[1];
   return true;
@@ -122,6 +111,7 @@ static bool regArrCheck(void)
   return true;
 }
 
+// 检验功能码对应的数据长度和寄存器数量
 static bool regCntCheck(void)
 {
   U16Union regCnt = {0};
@@ -129,8 +119,14 @@ static bool regCntCheck(void)
   regCnt.bytes[0] = modbus.buffer[5];
   regCnt.bytes[1] = modbus.buffer[4];
   
-  if((modbusRecord.funcCode == MODBUS_FUNC_WRITE_SINGLE_COIL) && (regCnt.word != 1))
-    return false;
+  if(modbusRecord.funcCode == MODBUS_FUNC_WRITE_SINGLE_COIL){
+    if(regCnt.word != 1)
+      return false;
+  }
+  else if(modbusRecord.funcCode == MODBUS_FUNC_WRITE_MULTI_REGS){
+    if(modbus.index != (MODBUS_SINGLE_WRITE_LENTH + modbus.buffer[6]))
+      return false;
+  }
   if(!Modbus_App_Check_RegCount(regCnt.word))
     return false;
 
@@ -140,7 +136,7 @@ static bool regCntCheck(void)
 
 static bool opDataCheck(void)
 {
-  if(!Modbus_App_Check_WriteValue(modbus.buffer[6]))
+  if(!Modbus_App_Check_WriteValue(modbusRecord.funcCode,modbusRecord.regCnt,modbus.buffer[6]))
     return false;
   modbusRecord.dataCode = modbus.buffer[6];
   return true;
@@ -175,6 +171,7 @@ static void errorFrameReply(uint8_t errorCode)
 static void frameCheck(void)
 {
   switch (state) {
+  /************** 不回复帧 **************/
   case MODBUS_STATE_IDLE:{
     if(lengthCheck())
       state = MODBUS_STATE_ADDR;
@@ -184,15 +181,24 @@ static void frameCheck(void)
   }
   case MODBUS_STATE_ADDR:{
     if(addressCheck())
+      state = MODBUS_STATE_CRC;
+    else
+      state = MODBUS_STATE_RESET;
+    break;
+  }
+  case MODBUS_STATE_CRC:{
+    if(crcCheck())
       state = MODBUS_STATE_FUNC;
     else
       state = MODBUS_STATE_RESET;
     break;
   }
+  /************** 回复帧 **************/
   case MODBUS_STATE_FUNC:{
     if(funcCheck())
       state = MODBUS_STATE_REG_ADDR;
     else{
+      LED_RED_TOGGLE();
       errorFrameReply(MODBUS_FUNC_ERROR);
       state = MODBUS_STATE_RESET;
     }
@@ -210,7 +216,7 @@ static void frameCheck(void)
   case MODBUS_STATE_REG_CNT:{
     if(regCntCheck()){
       if(modbusRecord.isRead)
-        state = MODBUS_STATE_CRC;
+        state = MODBUS_STATE_PROCESS;
       else
         state = MODBUS_STATE_DATA;
     }
@@ -222,18 +228,11 @@ static void frameCheck(void)
   }
   case MODBUS_STATE_DATA:{
     if(opDataCheck())
-      state = MODBUS_STATE_CRC;
+      state = MODBUS_STATE_PROCESS;
     else{
       errorFrameReply(MODBUS_OP_DATA_ERROR);
       state = MODBUS_STATE_RESET;
     }
-    break;
-  }
-  case MODBUS_STATE_CRC:{
-    if(crcCheck())
-      state = MODBUS_STATE_PROCESS;
-    else
-      state = MODBUS_STATE_RESET;
     break;
   }
   case MODBUS_STATE_PROCESS:{
@@ -301,32 +300,36 @@ static void frameProcess(void)
     break;
   }
   // case MODBUS_FUNC_WRITE_SINGLE_REG:{
+  //   
   //   break;
   // }
   // case MODBUS_FUNC_WRITE_MULTI_COILS:{
   //   break;
   // }
-  // case MODBUS_FUNC_WRITE_MULTI_REGS:{
-  //   break;
-  // }
+  case MODBUS_FUNC_WRITE_MULTI_REGS:{
+    Modbus_App_Write_Reg(modbusRecord.regArr,modbus.buffer + 6);
+    break;
+  }
   }
   return;
 }
 
 static void frameReply(void)
 {
-  if(modbusRecord.isRead){
-    U16Union CRC16 = {0};
-    // 计算CRC，低字节在前，高字节在后
-    CRC16.word = CRC16_Modbus(modbus_tx_buff,modbus_tx_index);
-    modbus_tx_buff[modbus_tx_index++] = CRC16.bytes[0];
-    modbus_tx_buff[modbus_tx_index++] = CRC16.bytes[1];
+  // 如果是写操作，再加上寄存器地址、寄存器数量(4个字节)
+  if(!modbusRecord.isRead){
+    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[2];
+    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[3];
+    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[4];
+    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[5];
   }
-  else{
-    memcpy(modbus_tx_buff, modbus.buffer, modbus.index);
-    modbus_tx_index = modbus.index;
-    // printf("modbus.index=%d\n",modbus.index);
-  }
+
+  U16Union CRC16 = {0};
+  // 计算CRC，低字节在前，高字节在后
+  CRC16.word = CRC16_Modbus(modbus_tx_buff,modbus_tx_index);
+  modbus_tx_buff[modbus_tx_index++] = CRC16.bytes[0];
+  modbus_tx_buff[modbus_tx_index++] = CRC16.bytes[1];
+
   HAL_UART_Transmit(MODBUS_UARTX,modbus_tx_buff,modbus_tx_index,MODBUS_UARTX_TIMEOUT);
 }
 
@@ -342,11 +345,19 @@ void Modbus_UART_Init(void)
   HAL_UART_Receive_IT(MODBUS_UARTX, modbus.buffer, 1);
 }
 
+/**
+ * @brief 获取到IDLE标志后调用
+ * 
+ */
 void Modbus_UART_SetFrameEndFlag(void)
 {
   modbus.frameEnd = true;
 }
 
+/**
+ * @brief HAL_UART_RxCpltCallback中调用
+ * 
+ */
 void Modbus_UART_SingleByte(void)
 {
   if(modbus.overflow == false){
@@ -360,7 +371,7 @@ void Modbus_UART_SingleByte(void)
 }
 
 /**
- * @brief 置IDLE标志位后，表明数据传输结束，调用此函数
+ * @brief 主循环调用此函数
  * 
  */
 void Modbus_UART_Task(void)
