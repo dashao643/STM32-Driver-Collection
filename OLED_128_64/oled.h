@@ -4,13 +4,13 @@
 #include "i2c.h"
 #include <stdint.h>
 
-#define ASCII_OFFSET 0x20
-#define ASCII_LENGTH 95
-
-void OLED_Init();
-void OLED_Clear();
-void OLED_ShowALL();
-void OLED_SetReverse();
+#define ASCII_OFFSET  0x20
+#define ASCII_LENGTH  95
+#define TIME_OUT      50
+void OLED_Init(void);
+void OLED_Clear(void);
+void OLED_ShowALL(void);
+void OLED_SetReverse(void);
 
 // 4行，16列
 void OLED_ShowChar(uint8_t x, uint8_t y, char ch);

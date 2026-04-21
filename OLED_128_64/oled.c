@@ -16,8 +16,9 @@
  * 
  * @param cmd 命令码
  */
-static void OLED_WriteCmd(uint8_t cmd) { 
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, &cmd, 1, 50); 
+static void OLED_WriteCmd(uint8_t cmd) 
+{ 
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, &cmd, 1, TIME_OUT); 
 }
 
 /**
@@ -26,15 +27,18 @@ static void OLED_WriteCmd(uint8_t cmd) {
  * @param data 字节数组
  * @param length 数据字节大小
  */
-static void OLED_WriteData(uint8_t data[], uint16_t length) { 
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_DATA, 1, data, length, 50); 
+static void OLED_WriteData(uint8_t data[], uint16_t length) 
+{ 
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_DATA, 1, 
+                    data, length, TIME_OUT); 
 }
 
 /**
  * @brief 初始化配置
  * 
  */
-void OLED_Init() {
+void OLED_Init(void) 
+{
   uint8_t OLED_CmdInit[] = {
     0xAE, // 关闭显示
     0xD5, // 设置时钟分频因子,震荡频率
@@ -63,11 +67,13 @@ void OLED_Init() {
     0xAF, // 开启显示                    
   };
   HAL_Delay(100); // 上电延时
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, OLED_CmdInit, sizeof(OLED_CmdInit), 50); 
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, 
+                    OLED_CmdInit, sizeof(OLED_CmdInit), TIME_OUT); 
   OLED_Clear();
 }
 
-void OLED_Clear() {
+void OLED_Clear(void) 
+{
   uint8_t data[128] = {0};
   for (uint8_t i = 0; i < 8; i++) {
     OLED_WriteCmd(0xB0 + i);
@@ -77,7 +83,8 @@ void OLED_Clear() {
   }
 }
 
-void OLED_ShowALL() {
+void OLED_ShowALL(void) 
+{
   uint8_t line[128] = {0};
 
   for (uint8_t i = 0; i < 8; i++) {
@@ -90,11 +97,13 @@ void OLED_ShowALL() {
   }
 }
 
-void OLED_SetReverse() { 
+void OLED_SetReverse(void) 
+{ 
   OLED_WriteCmd(0xA7); 
 }
 
-static void OLED_WriteCmdPos(uint8_t x, uint8_t y, uint8_t page_offs) {
+static void OLED_WriteCmdPos(uint8_t x, uint8_t y, uint8_t page_offs) 
+{
   uint8_t page = (x - 1) * 2 + page_offs;
   uint8_t col = (y - 1) * 8;
   if (page > 7) 
@@ -113,7 +122,8 @@ static void OLED_WriteCmdPos(uint8_t x, uint8_t y, uint8_t page_offs) {
  * @param y 列号，1-16
  * @param ch 字符
  */
-void OLED_ShowChar(uint8_t x, uint8_t y, char ch) {
+void OLED_ShowChar(uint8_t x, uint8_t y, char ch) 
+{
   if (x == 0 || x > 4)
     return;
   if (y == 0 || y > 16)
@@ -131,7 +141,8 @@ void OLED_ShowChar(uint8_t x, uint8_t y, char ch) {
 }
 
 // 显示字符串,创建字符串推荐不指定数组长度,或者手动加\0
-void OLED_ShowString(uint8_t x, uint8_t y, char str[]) {
+void OLED_ShowString(uint8_t x, uint8_t y, char str[]) 
+{
   if (str == NULL)
     return;
   if (x == 0 || x > 4)
@@ -149,7 +160,8 @@ void OLED_ShowString(uint8_t x, uint8_t y, char str[]) {
 }
 
 // 需要传入数据的位数，从低位开始显示，目的是更新显示区域 numLen: 1 - 11
-void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen) {
+void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen) 
+{
   if (x == 0 || x > 4)
     return;
   if (y == 0 || y > 16)
@@ -172,7 +184,8 @@ void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen) {
  * @param data 原始字节数组
  * @param size 数组大小 1-5 Byte
  */
-void OLED_ShowHexNumber(uint8_t x, uint8_t y, uint8_t data[], uint8_t size){
+void OLED_ShowHexNumber(uint8_t x, uint8_t y, uint8_t data[], uint8_t size)
+{
   if (x == 0 || x > 4)
     return;
   if (y == 0 || y > 16)

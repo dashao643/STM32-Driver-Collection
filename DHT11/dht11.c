@@ -152,7 +152,7 @@ void DHT11_Task(void) {
     break;
   }
   case DHT11_STATE_START_HIGH: {
-    if ((HAL_GetTick() - dht11.start_tick) >= DHT11_Start_MS) {
+    if ((HAL_GetTick() - dht11.start_tick) >= DHT11_START_MS) {
       DHT11_PIN_HIGH();
       Delay_us(13);
       dht11.state = DHT11_STATE_WAIT_ACK;

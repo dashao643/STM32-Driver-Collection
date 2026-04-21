@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define MODBUS_INSTANCE                 USART1
 #define MODBUS_UARTX                    &huart1
 #define MODBUS_UARTX_TIMEOUT            500
-266#define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
+#define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
 #define MODBUS_RX_BUFF_MINLENTH         8       // 最小帧长度
 #define MODBUS_SINGLE_WRITE_LENTH       9       // 单写操作帧长
 #define MODBUS_TX_BUFF_MAXLENTH         16      // 回复帧最大帧长
@@ -27,7 +28,6 @@
 #define MODBUS_REGS_ARR_ERROR           0x02    // 非法寄存器地址
 #define MODBUS_REGS_CNT_ERROR           0x03    // 非法寄存器数量
 #define MODBUS_OP_DATA_ERROR            0x04    // 非法操作数
-
 
 typedef struct{
   uint8_t buffer[MODBUS_RX_BUFF_MAXLENTH];
