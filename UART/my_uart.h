@@ -2,22 +2,22 @@
 #define __MY_UART_H__
 
 #include "usart.h"
-#include "stm32f1xx_hal.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 
 typedef struct {
-  uint8_t* buffer;
-  uint16_t bufSize;
-  uint16_t index;
-  bool overflow;
+  UART_HandleTypeDef *handle;
+  USART_TypeDef* instance;
+  uint8_t* rxBuf;
+  uint16_t rxMaxSize;
+  uint16_t rxSize;
+  uint8_t* txBuf;
+  uint16_t txMaxSize;
   bool frameEnd;
-} UART_ChannelTypeDef;
+} My_UART_t;
 
-void UART_Channel_Init(UART_ChannelTypeDef* channel, uint8_t* buf, uint16_t size);
-void UART_Channel_Clear(UART_ChannelTypeDef* channel);
-void UART_Channel_SingleByteProcess(UART_ChannelTypeDef* channel, UART_HandleTypeDef* huart);
-void UART_Channel_SetFrameEndFlag(UART_ChannelTypeDef* channel);
+void UART_Clear(My_UART_t *uart);
+void UART_IdleProcess(USART_TypeDef* Instance, My_UART_t *uart);
 
 #endif

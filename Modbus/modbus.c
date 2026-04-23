@@ -1,23 +1,22 @@
 #include "modbus.h"
-#include "usart.h"
 #include "general.h"
 #include "modbus_app.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "gpio.h"
 
-static Modbus_Uart_HandleTypeDef modbus;
-static Modbus_Frame_Record modbusRecord;
-static Modbus_StateTypeDef state = MODBUS_STATE_IDLE;
+static uint8_t rxBuf[MODBUS_RX_BUFF_MAXLENTH];
+static uint8_t txBuf[MODBUS_TX_BUFF_MAXLENTH];
 
-static uint8_t modbus_tx_buff[MODBUS_TX_BUFF_MAXLENTH];
-static uint8_t modbus_tx_index = 0;
+static Modbus_t modbus;
 
-static void clearRxBuffer(void);
+static void transmit(uint16_t size);
+static void transmit_DMA(uint16_t size);
 static void clearRecord(void);
 static bool lengthCheck(void);
 static bool addressCheck(void);
@@ -26,38 +25,49 @@ static bool regArrCheck(void);
 static bool regCntCheck(void);
 static bool opDataCheck(void);
 static bool crcCheck(void);
-static void errorFrameReply(uint8_t errorCode);
-static void frameCheck(void);
+static void errorReply(const uint8_t errorCode);
 static void frameProcess(void);
+static void frameExecute(void);
 static void frameReply(void);
 
-static void clearRxBuffer(void)
+// 阻塞式发送
+static void transmit(uint16_t size)
 {
-  memset(modbus.buffer, 0, MODBUS_RX_BUFF_MAXLENTH);
-  modbus.index = 0;
-  modbus.overflow = false;
-  modbus.frameEnd = false;
+  if(size > modbus.uart.txMaxSize)
+    size = modbus.uart.txMaxSize;
+
+  HAL_UART_Transmit(MODBUS_HANDLE, modbus.uart.txBuf, size, MODBUS_UARTX_TIMEOUT);
+}
+
+// DMA异步发送
+static void transmit_DMA(uint16_t size)
+{
+  if(size > modbus.uart.txMaxSize)
+    size = modbus.uart.txMaxSize;
+
+  HAL_UART_Transmit_DMA(MODBUS_HANDLE, modbus.uart.txBuf, size);
 }
 
 static void clearRecord(void)
 {
-  modbusRecord.funcCode = 0;
-  modbusRecord.regArr = 0;
-  modbusRecord.regCnt = 0;
-  modbusRecord.isRead = false;
-  modbusRecord.dataCode = 0;
+  modbus.record.func = 0;
+  modbus.record.regArr = 0;
+  modbus.record.regCnt = 0;
+  modbus.record.isRead = false;
+  modbus.record.data = 0;
+  modbus.record.txIndex = 0;
 }
 
 static bool lengthCheck(void)
 {
-  if((modbus.index < MODBUS_RX_BUFF_MINLENTH) || (modbus.overflow))
+  if(modbus.uart.rxSize < MODBUS_RX_BUFF_MINLENTH)
     return false;
   return true;
 }
 
 static bool addressCheck(void)
 {
-  if(modbus.buffer[0] != MODBUS_SLAVE_ADDR)
+  if(modbus.uart.rxBuf[0] != MODBUS_SLAVE_ADDR)
     return false;
   return true;
 }
@@ -70,30 +80,30 @@ static bool addressCheck(void)
  */
 static bool funcCheck(void)
 {
-  switch (modbus.buffer[1]) {
+  switch (modbus.uart.rxBuf[1]) {
     // 读操作，数据长度为最小
     case MODBUS_FUNC_READ_COILS:
     case MODBUS_FUNC_READ_DISCRETE_INPUT:
     case MODBUS_FUNC_READ_HOLD_REGS:
     case MODBUS_FUNC_READ_INPUT_REGS:{
-      if(modbus.index != MODBUS_RX_BUFF_MINLENTH)
+      if(modbus.uart.rxSize != MODBUS_RX_BUFF_MINLENTH)
         return false;
-      modbusRecord.isRead = true;
+      modbus.record.isRead = true;
       break;
       }
     // 单写操作
     case MODBUS_FUNC_WRITE_SINGLE_COIL:
     case MODBUS_FUNC_WRITE_SINGLE_REG:
-      if(modbus.index != MODBUS_SINGLE_WRITE_LENTH)
+      if(modbus.uart.rxSize != MODBUS_SINGLE_WRITE_LENTH)
         return false;
     case MODBUS_FUNC_WRITE_MULTI_COILS:
     case MODBUS_FUNC_WRITE_MULTI_REGS:{
-      modbusRecord.isRead = false;
+      modbus.record.isRead = false;
       break;
     }
     default: return false;
   }
-  modbusRecord.funcCode = modbus.buffer[1];
+  modbus.record.func = modbus.uart.rxBuf[1];
   return true;
 }
 
@@ -101,13 +111,13 @@ static bool regArrCheck(void)
 {
   U16Union regArr = {0};
   // 先赋值低字节，再赋值高字节
-  regArr.bytes[0] = modbus.buffer[3];
-  regArr.bytes[1] = modbus.buffer[2];
+  regArr.bytes[0] = modbus.uart.rxBuf[3];
+  regArr.bytes[1] = modbus.uart.rxBuf[2];
   
   if(!Modbus_App_Check_Address(regArr.word))
     return false;
 
-  modbusRecord.regArr = regArr.word;
+  modbus.record.regArr = regArr.word;
   return true;
 }
 
@@ -116,29 +126,29 @@ static bool regCntCheck(void)
 {
   U16Union regCnt = {0};
   // 先赋值低字节，再赋值高字节
-  regCnt.bytes[0] = modbus.buffer[5];
-  regCnt.bytes[1] = modbus.buffer[4];
+  regCnt.bytes[0] = modbus.uart.rxBuf[5];
+  regCnt.bytes[1] = modbus.uart.rxBuf[4];
   
-  if(modbusRecord.funcCode == MODBUS_FUNC_WRITE_SINGLE_COIL){
+  if(modbus.record.func == MODBUS_FUNC_WRITE_SINGLE_COIL){
     if(regCnt.word != 1)
       return false;
   }
-  else if(modbusRecord.funcCode == MODBUS_FUNC_WRITE_MULTI_REGS){
-    if(modbus.index != (MODBUS_SINGLE_WRITE_LENTH + modbus.buffer[6]))
+  else if(modbus.record.func == MODBUS_FUNC_WRITE_MULTI_REGS){
+    if(modbus.uart.rxSize != (MODBUS_SINGLE_WRITE_LENTH + modbus.uart.rxBuf[6]))
       return false;
   }
   if(!Modbus_App_Check_RegCount(regCnt.word))
     return false;
 
-  modbusRecord.regCnt = regCnt.word;
+  modbus.record.regCnt = regCnt.word;
   return true;
 }
 
 static bool opDataCheck(void)
 {
-  if(!Modbus_App_Check_WriteValue(modbusRecord.funcCode,modbusRecord.regCnt,modbus.buffer[6]))
+  if(!Modbus_App_Check_WriteValue(modbus.record.func,modbus.record.regCnt,modbus.uart.rxBuf[6]))
     return false;
-  modbusRecord.dataCode = modbus.buffer[6];
+  modbus.record.data = modbus.uart.rxBuf[6];
   return true;
 } 
 
@@ -146,111 +156,115 @@ static bool crcCheck(void)
 {
   U16Union crcRes = {0};
   // 最后两字节是收到的CRC，不参与计算
-  crcRes.word = CRC16_Modbus(modbus.buffer,modbus.index - 2);
+  crcRes.word = CRC16_Modbus(modbus.uart.rxBuf,modbus.uart.rxSize - 2);
   // crc16低位 -- 数据传输先传低字节
-  if( crcRes.bytes[0] == modbus.buffer[modbus.index-2] &&
-    crcRes.bytes[1] == modbus.buffer[modbus.index-1] )
+  if( crcRes.bytes[0] == modbus.uart.rxBuf[modbus.uart.rxSize-2] &&
+    crcRes.bytes[1] == modbus.uart.rxBuf[modbus.uart.rxSize-1] )
     return true;
   return false;
 }
 
-static void errorFrameReply(uint8_t errorCode)
+static void errorReply(const uint8_t errorCode)
 {
   U16Union crcCal = {0};
-  uint8_t reply[5] = {MODBUS_SLAVE_ADDR,modbus.buffer[1] | 0x80,errorCode,0,0};
+  uint8_t reply[5] = {MODBUS_SLAVE_ADDR,modbus.uart.rxBuf[1] | 0x80,errorCode,0,0};
   crcCal.word = CRC16_Modbus(reply, 3);
   reply[3] = crcCal.bytes[0];
   reply[4] = crcCal.bytes[1];
-  HAL_UART_Transmit(MODBUS_UARTX, reply, sizeof(reply), MODBUS_UARTX_TIMEOUT);
+
+  modbus.uart.txBuf = reply;
+  transmit(sizeof(reply));
 }
 
 /**
  * @brief 状态机实现帧验证
  * 
  */
-static void frameCheck(void)
+static void frameProcess(void)
 {
-  switch (state) {
+  switch (modbus.state) {
+  /********************* 校验 *********************/
   /************** 不回复帧 **************/
   case MODBUS_STATE_IDLE:{
     if(lengthCheck())
-      state = MODBUS_STATE_ADDR;
+      modbus.state = MODBUS_STATE_ADDR;
     else
-      state = MODBUS_STATE_RESET;
+      modbus.state = MODBUS_STATE_RESET;
     break;
   }
   case MODBUS_STATE_ADDR:{
     if(addressCheck())
-      state = MODBUS_STATE_CRC;
+      modbus.state = MODBUS_STATE_CRC;
     else
-      state = MODBUS_STATE_RESET;
+      modbus.state = MODBUS_STATE_RESET;
     break;
   }
   case MODBUS_STATE_CRC:{
     if(crcCheck())
-      state = MODBUS_STATE_FUNC;
+      modbus.state = MODBUS_STATE_FUNC;
     else
-      state = MODBUS_STATE_RESET;
+      modbus.state = MODBUS_STATE_RESET;
     break;
   }
   /************** 回复帧 **************/
   case MODBUS_STATE_FUNC:{
     if(funcCheck())
-      state = MODBUS_STATE_REG_ADDR;
+      modbus.state = MODBUS_STATE_REG_ADDR;
     else{
       LED_RED_TOGGLE();
-      errorFrameReply(MODBUS_FUNC_ERROR);
-      state = MODBUS_STATE_RESET;
+      errorReply(MODBUS_FUNC_ERROR);
+      modbus.state = MODBUS_STATE_RESET;
     }
     break;
   }
   case MODBUS_STATE_REG_ADDR:{
     if(regArrCheck())
-      state = MODBUS_STATE_REG_CNT;
+      modbus.state = MODBUS_STATE_REG_CNT;
     else{
-      errorFrameReply(MODBUS_REGS_ARR_ERROR);
-      state = MODBUS_STATE_RESET;
+      errorReply(MODBUS_REGS_ARR_ERROR);
+      modbus.state = MODBUS_STATE_RESET;
     }
     break;
   }
   case MODBUS_STATE_REG_CNT:{
     if(regCntCheck()){
-      if(modbusRecord.isRead)
-        state = MODBUS_STATE_PROCESS;
+      if(modbus.record.isRead)
+        modbus.state = MODBUS_STATE_EXECUTE;
       else
-        state = MODBUS_STATE_DATA;
+        modbus.state = MODBUS_STATE_DATA;
     }
     else{
-      errorFrameReply(MODBUS_REGS_CNT_ERROR);
-      state = MODBUS_STATE_RESET;
+      errorReply(MODBUS_REGS_CNT_ERROR);
+      modbus.state = MODBUS_STATE_RESET;
     }
     break;
   }
   case MODBUS_STATE_DATA:{
     if(opDataCheck())
-      state = MODBUS_STATE_PROCESS;
+      modbus.state = MODBUS_STATE_EXECUTE;
     else{
-      errorFrameReply(MODBUS_OP_DATA_ERROR);
-      state = MODBUS_STATE_RESET;
+      errorReply(MODBUS_OP_DATA_ERROR);
+      modbus.state = MODBUS_STATE_RESET;
     }
     break;
   }
-  case MODBUS_STATE_PROCESS:{
-    frameProcess();
-    state = MODBUS_STATE_REPLY;
+  /********************* 执行 *********************/
+  case MODBUS_STATE_EXECUTE:{
+    frameExecute();
+    modbus.state = MODBUS_STATE_REPLY;
     break;
   }
+  /********************* 回复 *********************/
   case MODBUS_STATE_REPLY:{
     frameReply();
-    state = MODBUS_STATE_RESET;
+    modbus.state = MODBUS_STATE_RESET;
     break;
   }
+  /********************* 重置 *********************/
   case MODBUS_STATE_RESET:{
-    clearRxBuffer();
+    UART_Clear(&modbus.uart);
     clearRecord();
-    memset(modbus_tx_buff, 0, MODBUS_TX_BUFF_MAXLENTH);
-    modbus_tx_index = 0;
-    state = MODBUS_STATE_IDLE;
+    modbus.state = MODBUS_STATE_IDLE;
     break;
   }
   default:
@@ -262,19 +276,20 @@ static void frameCheck(void)
  * @brief 根据记录的帧，实现帧处理，帧回复
  * 
  */
-static void frameProcess(void)
+static void frameExecute(void)
 {
-  modbus_tx_buff[modbus_tx_index++] = MODBUS_SLAVE_ADDR;
-  modbus_tx_buff[modbus_tx_index++] = modbusRecord.funcCode;
+  modbus.record.txIndex = 0;
+  modbus.uart.txBuf[modbus.record.txIndex++] = MODBUS_SLAVE_ADDR;
+  modbus.uart.txBuf[modbus.record.txIndex++] = modbus.record.func;
   // 读操作需要返回数据
-  if(modbusRecord.isRead){
+  if(modbus.record.isRead){
     // 纯数据长度，每个寄存器 2 字节
-    uint8_t byteCnt = modbusRecord.regCnt * 2;
-    modbus_tx_buff[modbus_tx_index++] = byteCnt;
+    uint8_t byteCnt = modbus.record.regCnt * 2;
+    modbus.uart.txBuf[modbus.record.txIndex++] = byteCnt;
   }
   // 写操作直接拷贝原始帧
   U16Union regData = {0};
-  switch (modbusRecord.funcCode) {
+  switch (modbus.record.func) {
   /*********************** 读 *************************/
   // case MODBUS_FUNC_READ_COILS:{
   //   break;
@@ -286,17 +301,17 @@ static void frameProcess(void)
   //   break;
   // }
   case MODBUS_FUNC_READ_INPUT_REGS:{
-    for(uint8_t i = 0;i < modbusRecord.regCnt; i++){
-      regData.word = Modbus_App_Read_InputReg(modbusRecord.regArr + i);
+    for(uint8_t i = 0;i < modbus.record.regCnt; i++){
+      regData.word = Modbus_App_Read_InputReg(modbus.record.regArr + i);
       // 数据先传高字节，再传低字节
-      modbus_tx_buff[modbus_tx_index++] = regData.bytes[1];
-      modbus_tx_buff[modbus_tx_index++] = regData.bytes[0];
+      modbus.uart.txBuf[modbus.record.txIndex++] = regData.bytes[1];
+      modbus.uart.txBuf[modbus.record.txIndex++] = regData.bytes[0];
     }
     break;
   }
   /*********************** 写 *************************/
   case MODBUS_FUNC_WRITE_SINGLE_COIL:{
-    Modbus_App_Write_Coil(modbusRecord.regArr,modbusRecord.dataCode);
+    Modbus_App_Write_Coil(modbus.record.regArr,modbus.record.data);
     break;
   }
   // case MODBUS_FUNC_WRITE_SINGLE_REG:{
@@ -307,7 +322,7 @@ static void frameProcess(void)
   //   break;
   // }
   case MODBUS_FUNC_WRITE_MULTI_REGS:{
-    Modbus_App_Write_Reg(modbusRecord.regArr,modbus.buffer + 6);
+    Modbus_App_Write_Reg(modbus.record.regArr,modbus.uart.rxBuf + 6);
     break;
   }
   }
@@ -317,71 +332,56 @@ static void frameProcess(void)
 static void frameReply(void)
 {
   // 如果是写操作，再加上寄存器地址、寄存器数量(4个字节)
-  if(!modbusRecord.isRead){
-    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[2];
-    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[3];
-    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[4];
-    modbus_tx_buff[modbus_tx_index++] = modbus.buffer[5];
+  if(!modbus.record.isRead){
+    modbus.uart.txBuf[modbus.record.txIndex++] = modbus.uart.rxBuf[2];
+    modbus.uart.txBuf[modbus.record.txIndex++] = modbus.uart.rxBuf[3];
+    modbus.uart.txBuf[modbus.record.txIndex++] = modbus.uart.rxBuf[4];
+    modbus.uart.txBuf[modbus.record.txIndex++] = modbus.uart.rxBuf[5];
   }
 
   U16Union CRC16 = {0};
   // 计算CRC，低字节在前，高字节在后
-  CRC16.word = CRC16_Modbus(modbus_tx_buff,modbus_tx_index);
-  modbus_tx_buff[modbus_tx_index++] = CRC16.bytes[0];
-  modbus_tx_buff[modbus_tx_index++] = CRC16.bytes[1];
+  CRC16.word = CRC16_Modbus(modbus.uart.txBuf,modbus.record.txIndex);
+  modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[0];
+  modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[1];
 
-  HAL_UART_Transmit(MODBUS_UARTX,modbus_tx_buff,modbus_tx_index,MODBUS_UARTX_TIMEOUT);
+  transmit_DMA(modbus.record.txIndex);
 }
 
 /**
- * @brief 初始化Modbus结构体，先开启中断
+ * @brief 初始化Modbus结构体，开启DMA和空闲中断
  * 
  */
-void Modbus_UART_Init(void)
+void Modbus_Init(void)
 {
-  clearRxBuffer();
+  modbus.uart.instance = MODBUS_INSTANCE;
+  modbus.uart.handle = MODBUS_HANDLE;
+  modbus.uart.rxBuf = rxBuf;
+  modbus.uart.rxMaxSize = MODBUS_RX_BUFF_MAXLENTH;
+  modbus.uart.txBuf = txBuf;
+  modbus.uart.txMaxSize = MODBUS_TX_BUFF_MAXLENTH;
+
+  UART_Clear(&modbus.uart);
   clearRecord();
-  __HAL_UART_ENABLE_IT(MODBUS_UARTX,UART_IT_IDLE);
-  HAL_UART_Receive_IT(MODBUS_UARTX, modbus.buffer, 1);
-}
 
-/**
- * @brief 获取到IDLE标志后调用
- * 
- */
-void Modbus_UART_SetFrameEndFlag(void)
-{
-  modbus.frameEnd = true;
-}
+  HAL_UART_Receive_DMA(MODBUS_HANDLE, modbus.uart.rxBuf, modbus.uart.rxMaxSize);
+  __HAL_UART_ENABLE_IT(MODBUS_HANDLE, UART_IT_IDLE);
 
-/**
- * @brief HAL_UART_RxCpltCallback中调用
- * 
- */
-void Modbus_UART_SingleByte(void)
-{
-  if(modbus.overflow == false){
-    modbus.index++;
-    if (modbus.index <= MODBUS_RX_BUFF_MAXLENTH)
-      // 回调中重新开启中断接收，无窗口期
-      HAL_UART_Receive_IT(MODBUS_UARTX, modbus.buffer + modbus.index, 1);
-    else
-      modbus.overflow = true;
-  }
+  modbus.state = MODBUS_STATE_IDLE;
 }
 
 /**
  * @brief 主循环调用此函数
  * 
  */
-void Modbus_UART_Task(void)
+void Modbus_Task(void)
 {
-  if(modbus.frameEnd){
-    frameCheck();
-
-    // 先中止正在进行的接收（强制把 HAL 状态恢复为 READY，使中断接收开启一定生效）
-    HAL_UART_AbortReceive_IT(MODBUS_UARTX);
-    HAL_UART_Receive_IT(MODBUS_UARTX, modbus.buffer, 1);
+  if(modbus.uart.frameEnd){
+    frameProcess();
   }
 }
 
+My_UART_t* Modbus_Get_UART(void)
+{
+  return &modbus.uart;
+}

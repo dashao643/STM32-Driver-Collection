@@ -1,11 +1,13 @@
 #ifndef __MODBUS_H__
 #define __MODBUS_H__
 
+#include "my_uart.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 
 #define MODBUS_INSTANCE                 USART1
-#define MODBUS_UARTX                    &huart1
+#define MODBUS_HANDLE                   &huart1
 #define MODBUS_UARTX_TIMEOUT            500
 #define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
 #define MODBUS_RX_BUFF_MINLENTH         8       // 最小帧长度
@@ -29,13 +31,6 @@
 #define MODBUS_REGS_CNT_ERROR           0x03    // 非法寄存器数量
 #define MODBUS_OP_DATA_ERROR            0x04    // 非法操作数
 
-typedef struct{
-  uint8_t buffer[MODBUS_RX_BUFF_MAXLENTH];
-  uint16_t index;
-  bool overflow;
-  bool frameEnd;
-}Modbus_Uart_HandleTypeDef;
-
 typedef enum {
   MODBUS_STATE_IDLE = 0,        // 空闲，等待一帧开始
   MODBUS_STATE_ADDR,            // 接收并校验从机地址
@@ -44,22 +39,28 @@ typedef enum {
   MODBUS_STATE_REG_ADDR,        // 寄存器地址
   MODBUS_STATE_REG_CNT,         // 寄存器数量
   MODBUS_STATE_DATA,            // 接收数据段（写操作用到）（一个字节）
-  MODBUS_STATE_PROCESS,         // 执行功能（读取数据/控制IO）
+  MODBUS_STATE_EXECUTE,         // 执行功能（读取数据/控制IO）
   MODBUS_STATE_REPLY,           // 构造回复帧
   MODBUS_STATE_RESET            // 重置状态机，准备下一帧
-} Modbus_StateTypeDef;
+} Modbus_State_e;
 
-typedef struct{
-  uint8_t funcCode;
+typedef struct {
+  uint8_t func;
   uint16_t regArr;
   uint16_t regCnt;
   bool isRead;
-  uint8_t dataCode;
-} Modbus_Frame_Record;
+  uint8_t data;
+  uint16_t txIndex;
+} Modbus_Record_t;
 
-void Modbus_UART_Init(void);
-void Modbus_UART_SetFrameEndFlag(void);
-void Modbus_UART_SingleByte(void);
-void Modbus_UART_Task(void);
+typedef struct {
+  My_UART_t uart;
+  Modbus_State_e state;
+  Modbus_Record_t record;
+} Modbus_t;
+
+void Modbus_Init(void);
+void Modbus_Task(void);
+My_UART_t* Modbus_Get_UART(void);
 
 #endif
