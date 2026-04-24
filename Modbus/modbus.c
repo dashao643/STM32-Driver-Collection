@@ -13,10 +13,8 @@
 static uint8_t rxBuf[MODBUS_RX_BUFF_MAXLENTH];
 static uint8_t txBuf[MODBUS_TX_BUFF_MAXLENTH];
 
-static Modbus_t modbus;
+static Modbus_t modbus = {0};
 
-static void transmit(uint16_t size);
-static void transmit_DMA(uint16_t size);
 static void clearRecord(void);
 static bool lengthCheck(void);
 static bool addressCheck(void);
@@ -29,24 +27,6 @@ static void errorReply(const uint8_t errorCode);
 static void frameProcess(void);
 static void frameExecute(void);
 static void frameReply(void);
-
-// 阻塞式发送
-static void transmit(uint16_t size)
-{
-  if(size > modbus.uart.txMaxSize)
-    size = modbus.uart.txMaxSize;
-
-  HAL_UART_Transmit(MODBUS_HANDLE, modbus.uart.txBuf, size, MODBUS_UARTX_TIMEOUT);
-}
-
-// DMA异步发送
-static void transmit_DMA(uint16_t size)
-{
-  if(size > modbus.uart.txMaxSize)
-    size = modbus.uart.txMaxSize;
-
-  HAL_UART_Transmit_DMA(MODBUS_HANDLE, modbus.uart.txBuf, size);
-}
 
 static void clearRecord(void)
 {
@@ -173,7 +153,7 @@ static void errorReply(const uint8_t errorCode)
   reply[4] = crcCal.bytes[1];
 
   modbus.uart.txBuf = reply;
-  transmit(sizeof(reply));
+  UART_Transmit(&modbus.uart, sizeof(reply), BLOCK, MODBUS_UARTX_TIMEOUT);
 }
 
 /**
@@ -211,7 +191,6 @@ static void frameProcess(void)
     if(funcCheck())
       modbus.state = MODBUS_STATE_REG_ADDR;
     else{
-      LED_RED_TOGGLE();
       errorReply(MODBUS_FUNC_ERROR);
       modbus.state = MODBUS_STATE_RESET;
     }
@@ -345,7 +324,7 @@ static void frameReply(void)
   modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[0];
   modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[1];
 
-  transmit_DMA(modbus.record.txIndex);
+  UART_Transmit(&modbus.uart, modbus.record.txIndex, DMA, 0);
 }
 
 /**
@@ -354,6 +333,7 @@ static void frameReply(void)
  */
 void Modbus_Init(void)
 {
+  /******************* UART *******************/
   modbus.uart.instance = MODBUS_INSTANCE;
   modbus.uart.handle = MODBUS_HANDLE;
   modbus.uart.rxBuf = rxBuf;
@@ -362,11 +342,12 @@ void Modbus_Init(void)
   modbus.uart.txMaxSize = MODBUS_TX_BUFF_MAXLENTH;
 
   UART_Clear(&modbus.uart);
-  clearRecord();
-
+  
   HAL_UART_Receive_DMA(MODBUS_HANDLE, modbus.uart.rxBuf, modbus.uart.rxMaxSize);
   __HAL_UART_ENABLE_IT(MODBUS_HANDLE, UART_IT_IDLE);
 
+  /******************* Modbus *******************/
+  clearRecord();
   modbus.state = MODBUS_STATE_IDLE;
 }
 
