@@ -11,15 +11,19 @@
 6. RTC外设实时时钟
 7. 数码管驱动
 8. WiFi（esp8266，AP模式）
-9. RS485（待测试)
+9. RS485（待测试）
+10. ADC采集（多传感器）
 
 ## 未来：
-9. IAP、OTA升级
 10. DS18B20驱动
 11. PID电机控制
-12. RS485、CAN通信
+12. CAN通信
 13. MQTT、HTTP、CoAP、DDS
 14. 红外通信、RFID、NFC
 15. 以太网通信协议应用
 16. LCD屏幕驱动（8080协议）
 17. 蓝牙、4G、2.4G、LoRa、NB、Zigbee
+18. IAP、OTA升级
+19. SD卡、IC卡
+20. 超声波
+21. DAC播放音频
