@@ -1,15 +1,12 @@
 #include "oled.h"
 #include "oledfont.h"
 #include "stm32f1xx_hal.h"
+// #include "my_i2c.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 
 #include "gpio.h"
-
-#define OLED_I2C_ADDR 0x78
-#define OLED_CMD      0x00 // 写命令
-#define OLED_DATA     0x40 // 写数据
 
 /**
  * @brief 硬件I2C写命令
@@ -17,8 +14,14 @@
  * @param cmd 命令码
  */
 static void OLED_WriteCmd(uint8_t cmd) 
-{ 
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, &cmd, 1, TIME_OUT); 
+{
+#ifdef I2C_SOFTWARE
+  I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, &cmd, 1);
+#endif
+
+#ifdef I2C_HARDWARE
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, &cmd, 1, OLED_TIME_OUT); 
+#endif
 }
 
 /**
@@ -29,8 +32,13 @@ static void OLED_WriteCmd(uint8_t cmd)
  */
 static void OLED_WriteData(uint8_t data[], uint16_t length) 
 { 
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_DATA, 1, 
-                    data, length, TIME_OUT); 
+#ifdef I2C_SOFTWARE
+  I2C_Mem_Write(OLED_I2C_ADDR, OLED_DATA, 1, data, length);
+#endif
+
+#ifdef I2C_HARDWARE
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_DATA, 1, data, length, OLED_TIME_OUT); 
+#endif
 }
 
 /**
@@ -67,8 +75,15 @@ void OLED_Init(void)
     0xAF, // 开启显示                    
   };
   HAL_Delay(100); // 上电延时
+
+#ifdef I2C_SOFTWARE
+  I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, OLED_CmdInit, sizeof(OLED_CmdInit));
+#endif
+
+#ifdef I2C_HARDWARE
   HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, 
-                    OLED_CmdInit, sizeof(OLED_CmdInit), TIME_OUT); 
+                    OLED_CmdInit, sizeof(OLED_CmdInit), OLED_TIME_OUT); 
+#endif
   OLED_Clear();
 }
 
