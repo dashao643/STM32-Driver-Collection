@@ -37,7 +37,7 @@ static void OLED_WriteData(uint8_t data[], uint16_t length)
 #endif
 
 #ifdef I2C_HARDWARE
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_DATA, 1, data, length, OLED_TIME_OUT); 
+  HAL_I2C_Mem_Write(OLED_HANDLE, OLED_I2C_ADDR, OLED_DATA, 1, data, length, OLED_TIME_OUT); 
 #endif
 }
 
@@ -77,11 +77,12 @@ void OLED_Init(void)
   HAL_Delay(100); // 上电延时
 
 #ifdef I2C_SOFTWARE
-  I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, OLED_CmdInit, sizeof(OLED_CmdInit));
+  I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, 
+                OLED_CmdInit, sizeof(OLED_CmdInit));
 #endif
 
 #ifdef I2C_HARDWARE
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, 
+  HAL_I2C_Mem_Write(OLED_HANDLE, OLED_I2C_ADDR, OLED_CMD, 1, 
                     OLED_CmdInit, sizeof(OLED_CmdInit), OLED_TIME_OUT); 
 #endif
   OLED_Clear();

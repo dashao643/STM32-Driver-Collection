@@ -1,5 +1,6 @@
 #include "general.h"
 #include "usart.h"
+#include <stdio.h>
 
 /**
  * @brief 微秒级延时，最长900us
@@ -30,18 +31,51 @@ void Delay_us(__IO uint32_t delay)
   }
 }
 
-/**
- * @brief printf函数重定向到串口X（最后要带\n）
- * 
- * @param ch 
- * @return int 
- */
-int __io_putchar(int ch)
+#if defined(__GNUC__)
+// ========== CMake / GCC 编译器用 ==========
+int _write(int file, char *ptr, int len)
+{
+   HAL_UART_Transmit(UARTX_PRINTF, (uint8_t *)ptr, len, UARTX_TIMEOUT);
+   return len;
+}
+
+#elif defined(__CC_ARM) || defined(__ARMCC_VERSION)
+// ========== MDK-ARM 编译器用 ==========
+/* 关闭半主机模式 */
+#pragma import(__use_no_semihosting)
+
+/* 标准库需要的文件结构 */
+struct __FILE
+{
+  int handle;
+};
+
+int _ttywrch(int ch)
+{
+  return ch;
+}
+
+/* 避免半主机的空函数 */
+void _sys_exit(int x)
+{
+  (void)x;
+}
+
+char *_sys_command_string(char *cmd, int len)
+{
+	return NULL;
+}
+
+FILE __stdout;
+
+/* 重定向 fputc —— printf 最终会调用这个函数 */
+int fputc(int ch, FILE *f)
 {
   HAL_UART_Transmit(UARTX_PRINTF, (uint8_t *)&ch, 1, UARTX_TIMEOUT);
   
   return ch;
 }
+#endif
 
 // Modbus CRC16 标准查表
 const uint16_t CRC16_TABLE[256] = {

@@ -1,9 +1,11 @@
 #include "my_i2c.h"
 
 #include "general.h"
+#include "gpio.h"
 #include "main.h"
 #include "stm32f1xx_hal.h"
 #include <stdint.h>
+#include <stdio.h>
 
 // SDA 默认配置：开漏输出，高电平，上拉. 开漏输出可以读取外部信号的高低电平
 // SCL 默认配置：推挽输出，高电平，上拉
@@ -14,6 +16,17 @@
 #define SDA_LOW()   HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_RESET)
 #define SDA_READ()  HAL_GPIO_ReadPin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin)
 
+static void start(void);
+static void stop(void);
+static void sendBit(uint8_t bit);
+static uint8_t readBit(void);
+static bool blockWaitAck(void);
+static void sendAck(void);
+static void sendNAck(void);
+static void sendByte(uint8_t byte);
+static uint8_t receiveByte(void);
+
+// 数据通信过程中，每一次操作后，把SCL拉低
 // SCL高的情况下SDA拉低
 static void start(void)
 {
@@ -48,6 +61,8 @@ static void sendBit(uint8_t bit)
   SCL_HIGH();
   Delay_us(I2C_SOFTWARE_DELAY_US);
   SCL_LOW();
+  // SDA发完，释放SDA
+  SDA_HIGH();
   Delay_us(I2C_SOFTWARE_DELAY_US);
 }
 
@@ -71,15 +86,19 @@ static uint8_t readBit(void)
  */
 static bool blockWaitAck(void)
 {
-  uint8_t timeoutMs = 0;
+  uint16_t timeoutUs = 0;
 
+  // 释放SDA，交给从机控制
+  SDA_HIGH();
   SCL_HIGH();
 
   // 读取到高，继续循环阻塞，读取到低跳出while
   while(SDA_READ()){
-    HAL_Delay(1);
-    timeoutMs++;
-    if(timeoutMs > I2C_SOFTWARE_TIMEOUT_MS){
+    Delay_us(1);
+    timeoutUs++;
+    if(timeoutUs > I2C_SOFTWARE_TIMEOUT_US){
+      // printf("timout=%d\n",timeoutUs);
+      SCL_LOW();
       stop();
       return false;
     }
@@ -173,22 +192,29 @@ bool I2C_Mem_Write(uint8_t devAddress, uint8_t memAddress, uint8_t memAddSize, u
 
   // 发从机地址
   sendByte(devAddress);
-  if(!blockWaitAck())
+  if(!blockWaitAck()){
+    // printf("1\n");
     return false;
+  }
 
   // 发寄存器地址
   for(uint8_t i = 0; i < memAddSize; i++){
     sendByte(memAddress);
-    if(!blockWaitAck())
-    return false;
+    if(!blockWaitAck()){
+      // printf("2\n");
+      return false;
+    }
   }
-  
+
   // 循环发送数据
   for(uint16_t i = 0; i < size; i++){
     sendByte(data[i]);
-    if(!blockWaitAck())
+    if(!blockWaitAck()){
+      // printf("3\n");
       return false;
+    }
   }
+
   stop();
 
   return true;

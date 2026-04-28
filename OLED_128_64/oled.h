@@ -9,7 +9,7 @@
 // #define I2C_HARDWARE          // 硬件I2C
 
 // #define OLED_HANDLE           &hi2c1
-// #define OLED_TIME_OUT         50
+// #define OLED_TIME_OUT         1
 
 #define ASCII_OFFSET          0x20
 #define ASCII_LENGTH          95

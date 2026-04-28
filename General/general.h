@@ -4,7 +4,7 @@
 #include "main.h"
 
 #define CLOCK_FREQUENCY_MHZ     72
-#define UARTX_TIMEOUT           500
+#define UARTX_TIMEOUT           5
 #define UARTX_PRINTF            &huart1
 
 typedef union
