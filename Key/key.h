@@ -1,24 +1,23 @@
 #ifndef __KEY_H
 #define __KEY_H
 
-#define PULL_UP     1
-#define PULL_DOWN   0
+#include <stdint.h>
 
-#define KEY_MODE PULL_UP              // 选择按键是上拉还是下拉
+// 选择按键是上拉还是下拉
+#define KEY_PULL_UP
+// #define PULL_DOWN
 
-#if KEY_MODE == PULL_UP
+#ifdef KEY_PULL_UP
 #define KEY_NOT_PRESS GPIO_PIN_SET
 #define KEY_PRESSED   GPIO_PIN_RESET
 
-#elif KEY_MODE == PULL_DOWN           // 显式判断下拉
+#elifdef KEY_PULL_DOWN
 #define KEY_NOT_PRESS GPIO_PIN_RESET
 #define KEY_PRESSED   GPIO_PIN_SET
-
-#else
-#error "KEY_MODE配置错误!仅支持PULL_UP(1)或PULL_DOWN(0)!" // 无效配置时，编译阶段直接报错，提示问题
 #endif
 
-#define KEY_CNT 3
+#define KEY_INTERVAL_MS            20
+#define KEY_CNT                    3
 
 typedef enum { 
   KEY_NONE = 0,
@@ -28,9 +27,16 @@ typedef enum {
 //   KEY_DOWN1, 
 //   KEY_DOWN2,
 //   KEY_DOWN3
-} KEY_Num;
+} KeyNum_e;
+
+typedef struct {
+  uint8_t preKey;
+  uint8_t curKey;
+  uint32_t keyScanMs;
+  uint8_t keyValue;
+} Key_t;
 
 void Key_Init(void);
-KEY_Num key_Read(void);
+KeyNum_e key_Read(void);
 
 #endif

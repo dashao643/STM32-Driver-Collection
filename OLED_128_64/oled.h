@@ -11,12 +11,12 @@
 // #define OLED_HANDLE           &hi2c1
 // #define OLED_TIME_OUT         1
 
-#define ASCII_OFFSET          0x20
-#define ASCII_LENGTH          95
+#define ASCII_OFFSET              0x20
+#define ASCII_LENGTH              95
 
-#define OLED_I2C_ADDR         0x78
-#define OLED_CMD              0x00 // 写命令
-#define OLED_DATA             0x40 // 写数据
+#define OLED_I2C_SLAVE_ADDR       0x78
+#define OLED_I2C_CMD              0x00 // 写命令
+#define OLED_I2C_DATA             0x40 // 写数据
 
 void OLED_Init(void);
 void OLED_Clear(void);

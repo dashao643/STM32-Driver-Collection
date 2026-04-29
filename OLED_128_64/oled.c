@@ -1,22 +1,42 @@
 #include "oled.h"
 #include "oledfont.h"
 #include "stm32f1xx_hal.h"
-// #include "my_i2c.h"
+#include "my_i2c.h"
+// #include <stdint.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 
-#include "gpio.h"
+// #include "gpio.h"
+
+
 
 /**
- * @brief 硬件I2C写命令
+ * @brief 先发送写命令指令，再发送具体命令
  * 
- * @param cmd 命令码
+ * @param cmd 命令码数组指针
+ * @param size 字节大小
  */
-static void OLED_WriteCmd(uint8_t cmd) 
+static void OLED_WriteCmd(uint8_t *cmd, uint8_t size) 
 {
 #ifdef I2C_SOFTWARE
-  I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, &cmd, 1);
+  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, I2C_MEMADD_8BIT, cmd, size);
+#endif
+
+#ifdef I2C_HARDWARE
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, cmd, size, OLED_TIME_OUT); 
+#endif
+}
+
+/**
+ * @brief 发送单个写指令
+ * 
+ * @param cmd 具体指令
+ */
+static void OLED_WriteSingleCmd(uint8_t cmd) 
+{
+#ifdef I2C_SOFTWARE
+  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, I2C_MEMADD_8BIT, &cmd, 1);
 #endif
 
 #ifdef I2C_HARDWARE
@@ -25,7 +45,7 @@ static void OLED_WriteCmd(uint8_t cmd)
 }
 
 /**
- * @brief 硬件I2C写数据
+ * @brief 先发送写数据指令，再发送具体命令
  * 
  * @param data 字节数组
  * @param length 数据字节大小
@@ -33,7 +53,7 @@ static void OLED_WriteCmd(uint8_t cmd)
 static void OLED_WriteData(uint8_t data[], uint16_t length) 
 { 
 #ifdef I2C_SOFTWARE
-  I2C_Mem_Write(OLED_I2C_ADDR, OLED_DATA, 1, data, length);
+  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_DATA, I2C_MEMADD_8BIT, data, length);
 #endif
 
 #ifdef I2C_HARDWARE
@@ -76,15 +96,16 @@ void OLED_Init(void)
   };
   HAL_Delay(100); // 上电延时
 
-#ifdef I2C_SOFTWARE
-  I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, 
-                OLED_CmdInit, sizeof(OLED_CmdInit));
-#endif
+  OLED_WriteCmd(OLED_CmdInit, sizeof(OLED_CmdInit));
+// #ifdef I2C_SOFTWARE
+//   I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, 
+//                 OLED_CmdInit, sizeof(OLED_CmdInit));
+// #endif
 
-#ifdef I2C_HARDWARE
-  HAL_I2C_Mem_Write(OLED_HANDLE, OLED_I2C_ADDR, OLED_CMD, 1, 
-                    OLED_CmdInit, sizeof(OLED_CmdInit), OLED_TIME_OUT); 
-#endif
+// #ifdef I2C_HARDWARE
+//   HAL_I2C_Mem_Write(OLED_HANDLE, OLED_I2C_ADDR, OLED_CMD, 1, 
+//                     OLED_CmdInit, sizeof(OLED_CmdInit), OLED_TIME_OUT); 
+// #endif
   OLED_Clear();
 }
 
@@ -92,9 +113,9 @@ void OLED_Clear(void)
 {
   uint8_t data[128] = {0};
   for (uint8_t i = 0; i < 8; i++) {
-    OLED_WriteCmd(0xB0 + i);
-    OLED_WriteCmd(0x00);
-    OLED_WriteCmd(0x10);
+    OLED_WriteSingleCmd(0xB0 + i);
+    OLED_WriteSingleCmd(0x00);
+    OLED_WriteSingleCmd(0x10);
     OLED_WriteData(data, sizeof(data));
   }
 }
@@ -104,9 +125,9 @@ void OLED_ShowALL(void)
   uint8_t line[128] = {0};
 
   for (uint8_t i = 0; i < 8; i++) {
-    OLED_WriteCmd(0xB0 + i);
-    OLED_WriteCmd(0x00);
-    OLED_WriteCmd(0x10);
+    OLED_WriteSingleCmd(0xB0 + i);
+    OLED_WriteSingleCmd(0x00);
+    OLED_WriteSingleCmd(0x10);
     // memset按字节设置
     memset(line, 0xFF, sizeof(line));
     OLED_WriteData(line, sizeof(line));
@@ -115,7 +136,7 @@ void OLED_ShowALL(void)
 
 void OLED_SetReverse(void) 
 { 
-  OLED_WriteCmd(0xA7); 
+  OLED_WriteSingleCmd(0xA7); 
 }
 
 static void OLED_WriteCmdPos(uint8_t x, uint8_t y, uint8_t page_offs) 
@@ -126,9 +147,9 @@ static void OLED_WriteCmdPos(uint8_t x, uint8_t y, uint8_t page_offs)
     page = 7;
   if (col > 127) 
     col = 127;
-  OLED_WriteCmd(0xB0 + page);         // 指定页地址
-  OLED_WriteCmd(0x00 + (col & 0x0F)); // 列地址取低四位
-  OLED_WriteCmd(0x10 + (col >> 4));   // 列地址取高四位
+  OLED_WriteSingleCmd(0xB0 + page);         // 指定页地址
+  OLED_WriteSingleCmd(0x00 + (col & 0x0F)); // 列地址取低四位
+  OLED_WriteSingleCmd(0x10 + (col >> 4));   // 列地址取高四位
 }
 
 /**

@@ -142,69 +142,38 @@ static uint8_t receiveByte(void)
   return byte;
 }
 
-bool I2C_Transmit(uint8_t devAddress, uint8_t *data, uint16_t size)
+
+/**
+ * @brief 写I2C从机内存
+ * 
+ * @param devAddress 从机写地址
+ * @param memAddress 内存地址，最大16位
+ * @param memAddSize 1字节或2字节
+ * @param data 数据数组指针
+ * @param size 数据字节大小
+ * @return true 写成功
+ * @return false 写失败
+ */
+bool I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, MemAddSize_e memAddSize, uint8_t *data, uint16_t size)
 {
   start();
 
-  // 先发从机地址
-  sendByte(devAddress);
-  if(!blockWaitAck())
-    return false;
-
-  // 循环发送数据
-  for(uint16_t i = 0; i < size; i++){
-    sendByte(data[i]);
-    if(!blockWaitAck())
-      return false;
-  }
-
-  stop();
-
-  return true;
-}
-
-bool I2C_Receive(uint8_t devAddress, uint8_t *data, uint16_t size)
-{
-  start();
-
-  // 先发从机地址
-  sendByte(devAddress);
-  if(!blockWaitAck())
-    return false;
-
-  // 循环接收数据
-  for(uint16_t i = 0; i < size; i++){
-    data[i] = receiveByte();
-
-    if(i != size - 1)
-      sendAck();    // 前面发 ACK
-    else
-      sendNAck();   // 最后一个字节发 NACK
-  }
-  stop();
-
-  return true;
-}
-
-bool I2C_Mem_Write(uint8_t devAddress, uint8_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size)
-{
-  start();
-
-  // 发从机地址
-  sendByte(devAddress);
+  // 发从机写地址,把最后一位置 0
+  sendByte(devAddress & 0xFE);
   if(!blockWaitAck()){
     // printf("1\n");
     return false;
   }
 
-  // 发寄存器地址
-  for(uint8_t i = 0; i < memAddSize; i++){
-    sendByte(memAddress);
-    if(!blockWaitAck()){
-      // printf("2\n");
-      return false;
-    }
+  // 先发送高字节（如果是16位地址）
+  if (memAddSize == I2C_MEMADD_16BIT) {
+    sendByte((memAddress >> 8) & 0xFF);
+    if (!blockWaitAck()) return false;
   }
+
+  // 再发送低字节
+  sendByte(memAddress & 0xFF);
+  if (!blockWaitAck()) return false;
 
   // 循环发送数据
   for(uint16_t i = 0; i < size; i++){
@@ -220,22 +189,37 @@ bool I2C_Mem_Write(uint8_t devAddress, uint8_t memAddress, uint8_t memAddSize, u
   return true;
 }
 
-bool I2C_Mem_Read(uint8_t devAddress, uint8_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size)
+/**
+ * @brief 读I2C从机内存
+ * 
+ * @param devAddress 从机读地址
+ * @param memAddress 内存寻址数组指针
+ * @param memAddSize 寻址字节大小
+ * @param data 数据数组指针
+ * @param size 数据字节大小
+ * @return true 读成功
+ * @return false 读失败
+ */
+bool I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, MemAddSize_e memAddSize, uint8_t *data, uint16_t size)
 {
   start();
 
-  // 发从机地址
-  sendByte(devAddress);
+  // 发从机写地址,把最后一位置 0
+  sendByte(devAddress & 0xFE);
   if(!blockWaitAck())
     return false;
 
-  // 发寄存器地址
-  sendByte(memAddress);
-  if(!blockWaitAck())
-    return false;
+  if (memAddSize == I2C_MEMADD_16BIT) {
+    sendByte((memAddress >> 8) & 0xFF);
+    if (!blockWaitAck()) return false;
+  }
+
+  sendByte(memAddress & 0xFF);
+  if (!blockWaitAck()) return false;
   
-  // 重复起始 + 读地址
+  // 重复起始 + 发从机读地址,把最后一位置 1
   start();
+
   sendByte(devAddress | 0x01);
   if(!blockWaitAck())
     return false;

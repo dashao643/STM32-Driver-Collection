@@ -5,48 +5,72 @@
 #include <stdbool.h>
 
 // 定义按键引脚表，匹配循环中的组数
-static GPIO_TypeDef *keyPorts[KEY_CNT] = {KEY_UP1_GPIO_Port,KEY_UP2_GPIO_Port,KEY_UP3_GPIO_Port};
-static const uint16_t keyPins[KEY_CNT] = {KEY_UP1_Pin,KEY_UP2_Pin,KEY_UP3_Pin};
+static GPIO_TypeDef *keyPorts[KEY_CNT] = {
+  KEY_UP1_GPIO_Port,
+  KEY_UP2_GPIO_Port,
+  KEY_UP3_GPIO_Port
+};
+static const uint16_t keyPins[KEY_CNT] = {
+  KEY_UP1_Pin,
+  KEY_UP2_Pin,
+  KEY_UP3_Pin
+};
 
-// static GPIO_TypeDef *key_ports[KEY_CNT] = {KEY_DOWN1_GPIO_Port,KEY_DOWN2_GPIO_Port,KEY_DOWN3_GPIO_Port};
-// static const uint16_t key_pins[KEY_CNT] = {KEY_DOWN1_Pin,KEY_DOWN2_Pin,KEY_DOWN3_Pin};
+// static GPIO_TypeDef *key_ports[KEY_CNT] = {
+//   KEY_DOWN1_GPIO_Port,
+//   KEY_DOWN2_GPIO_Port,
+//   KEY_DOWN3_GPIO_Port
+// };
+// static const uint16_t key_pins[KEY_CNT] = {
+//   KEY_DOWN1_Pin,
+//   KEY_DOWN2_Pin,
+//   KEY_DOWN3_Pin
+// };
 
-static GPIO_PinState preState[KEY_CNT];
-static GPIO_PinState curState[KEY_CNT];
+static Key_t key = {0};
 
-//初始化静态索引数组
+// 初始化静态索引数组
 void Key_Init(void)
 {
-  for (uint8_t i = 0; i < KEY_CNT; i++) {
-    preState[i] = KEY_NOT_PRESS;
-    curState[i] = KEY_NOT_PRESS;
-  }
+  key.preKey = KEY_NONE;
+  key.curKey = KEY_NONE;
+  key.keyValue = KEY_NONE;
+  key.keyScanMs = HAL_GetTick();
 }
 
-KEY_Num key_Read(void) 
+static KeyNum_e keyScan(void)
 {
-  KEY_Num res = KEY_NONE;
-  static uint8_t keyReadFlag = false;
-  static uint32_t keyScanMs = 0; 
-  
-  // HAL_GetTick()获取系统1ms定时器，溢出后仍然有效
-  if (HAL_GetTick() - keyScanMs >= 20) {
-    keyScanMs = HAL_GetTick();
-    keyReadFlag = true;
-  }
-  // 每隔20ms执行一次
-  if (keyReadFlag == true) {
-    keyReadFlag = false;
+  KeyNum_e key = KEY_NONE;
 
-    for (uint8_t i = 0; i < KEY_CNT; i++) {
-      preState[i] = curState[i];
-      curState[i] = HAL_GPIO_ReadPin(keyPorts[i], keyPins[i]);
-      // 上次按下，这次松开
-      if ((preState[i] == KEY_PRESSED) && (curState[i] == KEY_NOT_PRESS))   
-        // i + 1 跳过KEY_NONE的0
-        res = i + 1;                                                        
+  for (uint8_t i = 0; i < KEY_CNT; i++) {
+    if (HAL_GPIO_ReadPin(keyPorts[i], keyPins[i]) == KEY_PRESSED) {
+      key = i + 1;
+      break;
     }
   }
 
-  return res;
+  return key;
+}
+
+KeyNum_e Key_Read(void) 
+{
+  key.keyValue = KEY_NONE;
+
+  // 间隔 KEY_INTERVAL_MS 扫描一次
+  if ((HAL_GetTick() - key.keyScanMs) >= KEY_INTERVAL_MS) {
+    key.keyScanMs = HAL_GetTick();
+
+    // 保存上一次状态
+    key.preKey = key.curKey;
+    // 读取当前按下的键
+    key.curKey = keyScan();
+
+    // 上一次有按键按下，当前松开
+    if (key.preKey != KEY_NONE && key.curKey == KEY_NONE) {
+      // 赋值为上次按键的键值（此时 curKey 已为 KEY_NONE ）
+      key.keyValue = key.preKey;
+    }
+  }
+
+  return key.keyValue;
 }
