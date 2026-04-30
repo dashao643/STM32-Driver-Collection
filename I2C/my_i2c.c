@@ -1,10 +1,10 @@
 #include "my_i2c.h"
-
 #include "general.h"
 #include "gpio.h"
 #include "main.h"
-#include "stm32f1xx_hal.h"
+
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 // SDA 默认配置：开漏输出，高电平，上拉. 开漏输出可以读取外部信号的高低电平
@@ -114,6 +114,7 @@ static void sendAck(void)
   SCL_HIGH();
   Delay_us(I2C_SOFTWARE_DELAY_US);
   SCL_LOW();
+  SDA_HIGH();
 }
 
 static void sendNAck(void)
@@ -142,7 +143,6 @@ static uint8_t receiveByte(void)
   return byte;
 }
 
-
 /**
  * @brief 写I2C从机内存
  * 
@@ -151,10 +151,9 @@ static uint8_t receiveByte(void)
  * @param memAddSize 1字节或2字节
  * @param data 数据数组指针
  * @param size 数据字节大小
- * @return true 写成功
- * @return false 写失败
+ * @return HAL_StatusTypeDef 
  */
-bool I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, MemAddSize_e memAddSize, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size)
 {
   start();
 
@@ -162,67 +161,56 @@ bool I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, MemAddSize_e memAddS
   sendByte(devAddress & 0xFE);
   if(!blockWaitAck()){
     // printf("1\n");
-    return false;
+    return HAL_TIMEOUT;
   }
 
   // 先发送高字节（如果是16位地址）
-  if (memAddSize == I2C_MEMADD_16BIT) {
+  if (memAddSize == 2) {
     sendByte((memAddress >> 8) & 0xFF);
-    if (!blockWaitAck()) return false;
+    if (!blockWaitAck()) return HAL_TIMEOUT;
   }
 
   // 再发送低字节
   sendByte(memAddress & 0xFF);
-  if (!blockWaitAck()) return false;
+  if (!blockWaitAck()) return HAL_TIMEOUT;
 
   // 循环发送数据
   for(uint16_t i = 0; i < size; i++){
     sendByte(data[i]);
     if(!blockWaitAck()){
       // printf("3\n");
-      return false;
+      return HAL_TIMEOUT;
     }
   }
 
   stop();
 
-  return true;
+  return HAL_OK;
 }
 
-/**
- * @brief 读I2C从机内存
- * 
- * @param devAddress 从机读地址
- * @param memAddress 内存寻址数组指针
- * @param memAddSize 寻址字节大小
- * @param data 数据数组指针
- * @param size 数据字节大小
- * @return true 读成功
- * @return false 读失败
- */
-bool I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, MemAddSize_e memAddSize, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size)
 {
   start();
 
   // 发从机写地址,把最后一位置 0
   sendByte(devAddress & 0xFE);
   if(!blockWaitAck())
-    return false;
+    return HAL_TIMEOUT;
 
-  if (memAddSize == I2C_MEMADD_16BIT) {
-    sendByte((memAddress >> 8) & 0xFF);
-    if (!blockWaitAck()) return false;
+  if (memAddSize == 2) {
+    sendByte(memAddress >> 8);
+    if (!blockWaitAck()) return HAL_TIMEOUT;
   }
 
-  sendByte(memAddress & 0xFF);
-  if (!blockWaitAck()) return false;
+  sendByte(memAddress);
+  if (!blockWaitAck()) return HAL_TIMEOUT;
   
   // 重复起始 + 发从机读地址,把最后一位置 1
   start();
 
   sendByte(devAddress | 0x01);
   if(!blockWaitAck())
-    return false;
+    return HAL_TIMEOUT;
 
   for(uint16_t i = 0; i < size; i++){
     data[i] = receiveByte();
@@ -231,7 +219,8 @@ bool I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, MemAddSize_e memAddSi
     else
       sendNAck();   // 最后一个字节发 NACK
   }
+  
   stop();
 
-  return true;
+  return HAL_OK;
 }
