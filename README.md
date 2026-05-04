@@ -14,18 +14,20 @@
 9. ADC采集
 10. 软件模拟I2C驱动AT24C64、ssd1306
 11. SPI驱动w25q64
+12. CAN通信（开发中）
 
 ## 未来：
-13. MQTT、HTTP、CoAP、DDS
-14. 红外通信、RFID、NFC
-15. 以太网通信协议应用
-16. LCD屏幕驱动（8080协议）
-17. 蓝牙、4G、2.4G、LoRa、NB、Zigbee
-18. IAP、OTA升级
-19. SD卡、IC卡
-20. 超声波
-21. DAC播放音频
-22. DS18B20驱动
-23. PID电机控制
-24. CAN通信
-25. PCF8574 、MPU6050
+1. MQTT、HTTP
+2. 红外通信、RFID
+3. 以太网通信协议应用
+4. LCD屏幕驱动（8080协议）
+5. 蓝牙、4G、2.4G、LoRa、NB、Zigbee
+6. IAP、OTA升级
+7. SD卡、IC卡
+8. 超声波
+9. DAC播放音频
+10. DS18B20驱动
+11. PID电机控制
+13. PCF8574 、MPU6050
+14. 低功耗、看门狗
+15. IIS协议、USB协议

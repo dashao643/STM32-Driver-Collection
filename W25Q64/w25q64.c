@@ -114,8 +114,8 @@ static HAL_StatusTypeDef writeDirectly(uint32_t addr, const uint8_t *data, uint1
   transmit(data, size);
   W25Q64_CS_HIGH();
 
- // 等本次
-  waitBusyTimeout();
+  // 等本次
+  if(waitBusyTimeout()) return HAL_BUSY;
 
   return HAL_OK;
 }
@@ -132,6 +132,8 @@ static HAL_StatusTypeDef writeDirectly(uint32_t addr, const uint8_t *data, uint1
 HAL_StatusTypeDef W25Q64_Write_Byte(const uint16_t page, const uint16_t addrInPage, 
                                     const uint8_t *data, uint16_t size)
 {
+  // 记录返回状态，期间出错即返回
+  HAL_StatusTypeDef res;
   // 写入的起始地址
   uint32_t startAddr  = (uint32_t)page * W25Q64_PAGE_SIZE + addrInPage;
   // 扇区编号
@@ -144,16 +146,18 @@ HAL_StatusTypeDef W25Q64_Write_Byte(const uint16_t page, const uint16_t addrInPa
   // 判断是否需要读改写
   if(isNeedRMW(page, addrInPage, size)){
     // 读整个扇区
-    W25Q64_Read_Sector(sector, w25q64_Buf, W25Q64_SECTOR_SIZE);
+    res = W25Q64_Read_Sector(sector, w25q64_Buf, W25Q64_SECTOR_SIZE);
+    if(res != HAL_OK) return res;
     // 修改缓冲
     for(uint16_t i = 0; i < size; i++)
       w25q64_Buf[offset + i] = data[i];
     // 擦除扇区
-    W25Q64_Erase_Sector(sector);
+    res = W25Q64_Erase_Sector(sector);
+    if(res != HAL_OK) return res;
     // 写回整个扇区
-    W25Q64_Write_Sector(sector, w25q64_Buf, W25Q64_SECTOR_SIZE);
+    res = W25Q64_Write_Sector(sector, w25q64_Buf, W25Q64_SECTOR_SIZE);
 
-    return HAL_OK;
+    return res;
   }
 
   // 不需要读改写
@@ -186,13 +190,15 @@ HAL_StatusTypeDef W25Q64_Write_Sector(const uint16_t sector, const uint8_t *data
   if(sector >= W25Q64_SECTOR_CNT) return HAL_ERROR;
   if(size > W25Q64_SECTOR_SIZE) return HAL_ERROR;
 
+  HAL_StatusTypeDef res;
   uint32_t addr = (uint32_t)sector * W25Q64_SECTOR_SIZE;
 
   // 一页一页写，每次256字节
   for(uint16_t i = 0; i < size; i += W25Q64_PAGE_SIZE){
     // 计算剩下大小是否不足一页
     uint16_t writeSize = (size - i) > W25Q64_PAGE_SIZE ? W25Q64_PAGE_SIZE : (size - i);
-    writeDirectly(addr + i, data + i, writeSize);
+    res = writeDirectly(addr + i, data + i, writeSize);
+    if(res != HAL_OK) return res;
   }
 
   return HAL_OK;
@@ -208,14 +214,15 @@ HAL_StatusTypeDef W25Q64_Read_Byte(const uint16_t page, const uint16_t addrInPag
 
   uint32_t addr = (uint32_t)page * W25Q64_PAGE_SIZE + addrInPage;
   uint8_t addrByte[3] = {addr >> 16, addr >> 8, addr};
+  HAL_StatusTypeDef state;
 
   W25Q64_CS_LOW();
   cmdTransmit(CMD_READ_DATA);
   transmit(addrByte, 3);
-  receive(data, size);
+  state = receive(data, size);
   W25Q64_CS_HIGH();
 
-  return HAL_OK;
+  return state;
 }
 
 // 从页起始地址开始读
@@ -240,14 +247,15 @@ HAL_StatusTypeDef W25Q64_Read_Sector(const uint16_t sector, uint8_t *data, uint1
 
   uint32_t sectorAddr = (uint32_t)sector * W25Q64_SECTOR_SIZE;
   uint8_t addrByte[3] = {sectorAddr >> 16, sectorAddr >> 8, sectorAddr};
-
+  HAL_StatusTypeDef state;
+  
   W25Q64_CS_LOW();
   cmdTransmit(CMD_READ_DATA);
   transmit(addrByte, 3);
-  receive(data, size);
+  state = receive(data, size);
   W25Q64_CS_HIGH();
 
-  return HAL_OK;
+  return state;
 }
 
 /**
@@ -263,6 +271,7 @@ HAL_StatusTypeDef W25Q64_Erase_Sector(const uint16_t sector)
 
   uint32_t addr = (uint32_t)sector * W25Q64_SECTOR_SIZE;
   uint8_t addrByte[3] = {addr >> 16, addr >> 8, addr};
+  HAL_StatusTypeDef state;
 
   W25Q64_CS_LOW();
   cmdTransmit(CMD_WRITE_ENABLE);
@@ -270,8 +279,10 @@ HAL_StatusTypeDef W25Q64_Erase_Sector(const uint16_t sector)
 
   W25Q64_CS_LOW();
   cmdTransmit(CMD_SECTOR_ERASE);
-  transmit(addrByte, 3);
+  state = transmit(addrByte, 3);
   W25Q64_CS_HIGH();
 
-  return HAL_OK;
+  if(waitBusyTimeout()) return HAL_BUSY;
+
+  return state;
 }

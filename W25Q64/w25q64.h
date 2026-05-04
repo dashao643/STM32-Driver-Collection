@@ -8,7 +8,7 @@
 #define W25Q64_HANDLE                   &hspi1
 #define W25Q64_CS_GPIO_PORT             SPI1_CS1_GPIO_Port
 #define W25Q64_CS_Pin                   SPI1_CS1_Pin
-#define W25Q64_TIMEOUT_MS               50
+#define W25Q64_TIMEOUT_MS               100
 #define W25Q64_BUSY_BLOCK_MS            200            // 阻塞等待busy
 
 #define W25Q64_MAX_ADDRESS_SPACE        0x7FFFFF
