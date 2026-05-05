@@ -36,9 +36,9 @@ static int32_t calTempESensor(uint16_t adcRaw)
   int32_t Rt = (10000L * mv) / (3300 - mv);
 
   if(Rt > 10000)
-      temp = 2500 - ((Rt - 10000) / 35);  // 降温
+    temp = 2500 - ((Rt - 10000) / 35);  // 降温
   else
-      temp = 2500 + ((10000 - Rt) / 30);  // 升温
+    temp = 2500 + ((10000 - Rt) / 30);  // 升温
 
   return temp;
 }
