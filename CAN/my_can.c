@@ -1,109 +1,192 @@
 #include "my_can.h"
 #include "stm32f1xx_hal.h"
-#include "stm32f1xx_hal_can.h"
-#include "stm32f1xx_hal_def.h"
+#include "can_app.h"
+
 #include <stdint.h>
 #include <stdio.h>
+#include "gpio.h"
+
+// APB1时钟36Mhz 
+// PSC: 6
+// BS1(8) + BS2(3) : 11(8 - 16)
+// SJW: 1
+// bsp = 36 000 000 / 6 / (11 + 1)
 
 // 屏蔽位值为1，表示要匹配;
 // 为0表示不需要匹配
 
 // 映像:11位STID + 18位EXID + IDE + RTR + 0 = 32
 
-HAL_StatusTypeDef CAN_SetFilter(void)
+static CAN_RxQueue_t can = {0};
+static uint32_t txTimer = 0;
+
+static void setFilter(void)
 {
   CAN_FilterTypeDef filter;
-  // 过滤器组
-  filter.FilterBank = 0;
-  // 过滤器模式
-  filter.FilterMode = CAN_FILTERMODE_IDMASK;
-  // 32位长度
-  filter.FilterScale = CAN_FILTERSCALE_32BIT;
   
-  // 全接收
-  filter.FilterIdHigh = 0x0000;
-  filter.FilterIdLow = 0x0000;
-  filter.FilterMaskIdHigh = 0x0000;
-  filter.FilterMaskIdLow = 0x0000;
+  // 过滤器配置
+  filter.FilterBank = 0;
+  filter.FilterMode = CAN_FILTERMODE_IDMASK;
+  filter.FilterScale = CAN_FILTERSCALE_32BIT;
 
-  // 只收奇数
-  // filter.FilterIdHigh = 0x0020;
-  // filter.FilterIdLow = 0x0000;
-  // filter.FilterMaskIdHigh = 0x0020;
-  // filter.FilterMaskIdLow = 0x0000;
+  // id范围：0 - 127，低7位放行，高4位固定
+  filter.FilterIdHigh   = 0x0000;
+  filter.FilterIdLow    = 0x0000;
+  filter.FilterMaskIdHigh = 0xF000;
+  filter.FilterMaskIdLow  = 0x0000;
 
-  // 启动过滤器
   filter.FilterActivation = CAN_FILTER_ENABLE;
-  // 选择FIFO
   filter.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  // 单CAN无效
   filter.SlaveStartFilterBank = 0;
+  
+  HAL_CAN_ConfigFilter(CAN_HANDLE, &filter);
+}
 
-  return HAL_CAN_ConfigFilter(&hcan, &filter);
+// 串口打印
+static void dataProcess(void)
+{
+  while(can.rxIn != can.rxOut){
+    CAN_Rx_t *frame = &can.rxQueue[can.rxOut];
+    printf("-------------------------------------\r\n");
+    printf("IDE:%d\r\n",    (int)frame->rxHeader.IDE);
+    printf("StdId:%d\r\n",  (int)frame->rxHeader.StdId);
+    printf("DLC:%d\r\n",    (int)frame->rxHeader.DLC);
+    printf("RTR:%d\r\n",    (int)frame->rxHeader.RTR);
+    // 接收到了数据帧,显示数据
+    if(can.rxQueue[can.rxOut].rxHeader.RTR == CAN_RTR_DATA){
+      for(uint8_t i = 0; i < frame->rxHeader.DLC; i++){
+        printf("data[%d]=%d\n",i,frame->data[i]);
+      }
+      printf("\r\n");
+    }
+    // 接收到了遥控帧,回传数据,待实现
+    else {
+      
+    }
+    can.rxOut = (can.rxOut + 1) % CAN_RX_QUEUE_NUM;
+  }
+}
+
+void CAN_Init(void)
+{
+  setFilter();
+  HAL_CAN_Start(CAN_HANDLE);
+  HAL_CAN_ActivateNotification(CAN_HANDLE, CAN_IT_RX_FIFO0_MSG_PENDING);
+}
+
+void CAN_Task(void)
+{
+  // 两个指针相等表示队列为空
+  if(can.rxIn == can.rxOut){
+    return;
+  }
+  // canRx.rxFlag = false;
+  LED_GREEN_TOGGLE();
+  // 解析数据，此处可调用应用层函数
+  dataProcess();
 }
 
 /**
- * @brief 
+ * @brief CAN发送函数
  * 
- * @param stdID 0 - 2047
- * @param data 
- * @param size 数据长度（数据帧：1~8，遥控帧：0）
- * @param frameType CAN_RTR_DATA / CAN_RTR_REMOTE
+ * @param txHeader 数据头结构体
+ * @param data 数组指针
+ * @param size 数据大小
+ * @return HAL_StatusTypeDef 返回状态
  */
-void CAN_TestPoll(uint16_t stdID, uint8_t *data, uint8_t size, uint8_t frameType)
+HAL_StatusTypeDef CAN_Transmit(CAN_TxHeader_t *txHeader, uint8_t *data, uint8_t size)
 {
-  if((frameType != CAN_RTR_DATA) && (frameType != CAN_RTR_REMOTE)) return;
-  if((frameType == CAN_RTR_DATA) && (size == 0)) return;
-  if(size > 8)  return;
+  if(txHeader->stdId > CAN_STD_ID_MAX) return HAL_ERROR;
+  if((txHeader->rtr != CAN_RTR_DATA) && (txHeader->rtr != CAN_RTR_REMOTE)) return HAL_ERROR;
+  if((txHeader->rtr == CAN_RTR_DATA) && (size == 0)) return HAL_ERROR;
+  if((txHeader->rtr == CAN_RTR_REMOTE) && (size != 0)) return HAL_ERROR;
+  if(size > CAN_DATA_SIZE_MAX) return HAL_ERROR;
 
   CAN_TxHeaderTypeDef TxHeader = {0};
 
-  // 指定ID类型
-  TxHeader.IDE = CAN_ID_STD;
-  // 配置ID
-  TxHeader.StdId = stdID;
-  // 指定帧类型
-  TxHeader.RTR = frameType;
-  // 数据长度 0 - 8
-  TxHeader.DLC = size;
-  // 时间戳设置
-  TxHeader.TransmitGlobalTime = DISABLE;
-  
-  // 死等可用的发送邮箱
-  while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan) < 1);
-  // 返回实际使用的邮箱编号
-  uint32_t TxMailbox;
-  uint8_t state = HAL_CAN_AddTxMessage(&hcan, &TxHeader, data, &TxMailbox);
-  if(state != HAL_OK){
-    printf("can tx error:%d\n",state);
-    return;
+  TxHeader.IDE = CAN_ID_STD;                      // 指定ID类型
+  TxHeader.StdId = txHeader->stdId;               // 配置ID
+  TxHeader.RTR = txHeader->rtr;                   // 指定帧类型
+  TxHeader.DLC = size;                            // 数据长度 0 - 8
+  TxHeader.TransmitGlobalTime = DISABLE;          // 时间戳设置
+
+  // 等待可用的发送邮箱
+  txTimer = HAL_GetTick();
+  while(HAL_CAN_GetTxMailboxesFreeLevel(CAN_HANDLE) == 0){
+    if((HAL_GetTick() - txTimer) > CAN_TX_TIMEOUT_MS)
+      return HAL_TIMEOUT;
   }
-// ====================== 等待当前帧发送完成 ======================
-  while (HAL_CAN_IsTxMessagePending(&hcan, TxMailbox));
-
-
-
-
-  // res: 0 - 3
-  if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) < 1){
-    printf("can rx no msg\n");
-    return;
-  }  
-  uint8_t RxData[8];
-  CAN_RxHeaderTypeDef rxHeader;
-  HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &rxHeader, RxData);
-  printf("IDE:%d\n",(int)rxHeader.IDE);
-  printf("StdId:%d\n",(int)rxHeader.StdId);
-  printf("DLC:%d\n",(int)rxHeader.DLC);
-  printf("RTR:%d\n",(int)rxHeader.RTR);
-  // 接收到了数据帧,显示数据
-  if(rxHeader.RTR == CAN_RTR_DATA){
-    for(uint8_t i = 0; i < rxHeader.DLC; i++){
-      printf("data[%d]=%d\n",i,RxData[i]);
+  // 返回实际使用的邮箱编号
+  uint32_t txMailbox;
+  uint8_t state;
+  state = HAL_CAN_AddTxMessage(CAN_HANDLE, &TxHeader, data, &txMailbox);
+  // 等待发送完成
+  if(state == HAL_OK){
+    txTimer = HAL_GetTick();
+    while(HAL_CAN_IsTxMessagePending(CAN_HANDLE, txMailbox)){
+      if((HAL_GetTick() - txTimer) > CAN_TX_TIMEOUT_MS)
+        return HAL_TIMEOUT;
     }
   }
-  // 接收到了遥控帧,回传数据,等会实现
-  else {
+  return state;
+}
 
+// 中断回调中读走数据,存入队列
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan->Instance == CAN_INSTANCE){
+    CAN_Rx_t tempFrame;
+    HAL_CAN_GetRxMessage(hcan,CAN_RX_FIFO0,&tempFrame.rxHeader,tempFrame.data);
+    uint8_t nextIn = (can.rxIn + 1) % CAN_RX_QUEUE_NUM;
+    // 舍弃一个位置，用于表示队列已满
+    if (nextIn == can.rxOut){
+      LED_BLUE_TOGGLE();
+      return;
+    }
+    can.rxQueue[can.rxIn] = tempFrame;
+    can.rxIn = nextIn;
   }
 }
+
+// void CAN_Test01(void)
+// {
+//   uint8_t state = 0;
+//   uint8_t txData1[8] = {0};
+//   for(uint16_t i = 0; i < 8; i++){
+//     txData1[i] = i + 1;
+//   }
+//   // uint8_t txData2[4] = {0x11,0x22,0x33,0x44};
+
+//   CAN_TxHeader_t txHeader;
+//   txHeader.stdId = HAL_GetTick() % 2048;
+  
+//   printf("id=%d\n",txHeader.stdId);
+
+//   txHeader.rtr = CAN_RTR_DATA;
+//   for(uint16_t i = 0; i < 10; i++){
+//     state = CAN_Transmit(&txHeader,txData1,sizeof(txData1));
+//     printf("state=%d\n",state);
+//   }
+
+//   // printf("state=%d\n",state);
+// }
+
+// void CAN_Test02(void)
+// {
+//   uint8_t state = 0;
+//   // uint8_t txData2[4] = {0x11,0x22,0x33,0x44};
+
+//   CAN_TxHeader_t txHeader;
+//   txHeader.stdId = HAL_GetTick() % 2048;
+
+//   printf("id=%d\n",txHeader.stdId);
+//   txHeader.rtr = CAN_RTR_REMOTE;
+
+//   state = CAN_Transmit(&txHeader,0,0);
+//   printf("state=%d\n",state);
+// }
+
+// void HAL_CAN_RxFifo0FullCallback(CAN_HandleTypeDef *hcan)
+// {
+//   printf("full\n");
+// }
