@@ -26,10 +26,10 @@ static inline void W25Q64_CS_LOW(void);
 static inline void W25Q64_CS_HIGH(void);
 static inline HAL_StatusTypeDef transmit(const uint8_t *data, uint16_t size);
 static inline HAL_StatusTypeDef receive(uint8_t *data, uint16_t size);
-static void cmdTransmit(const uint8_t cmd);
+static void cmdTransmit(uint8_t cmd);
 static bool isBusy(void);
 static bool waitBusyTimeout(void);
-static bool isNeedRMW(const uint16_t page, const uint16_t addrInPage, uint16_t size);
+static bool isNeedRMW(uint16_t page, uint16_t addrInPage, uint16_t size);
 static HAL_StatusTypeDef writeDirectly(uint32_t addr, const uint8_t *data, uint16_t size);
 
 static inline void W25Q64_CS_LOW(void) 
@@ -52,7 +52,7 @@ static inline HAL_StatusTypeDef receive(uint8_t *data, uint16_t size)
   return HAL_SPI_Receive(W25Q64_HANDLE, data, size, W25Q64_TIMEOUT_MS);
 }
 
-static void cmdTransmit(const uint8_t cmd)
+static void cmdTransmit(uint8_t cmd)
 {
   transmit(&cmd, 1);
 }
@@ -66,7 +66,7 @@ static bool isBusy(void)
   W25Q64_CS_HIGH();
 
   // 判断busy位是否为1(第0位)
-  return (stateByte & 0x01);
+  return READ_BIT(stateByte, 0x01);
 }
 
 /**
@@ -86,7 +86,7 @@ static bool waitBusyTimeout(void)
 }
 
 // 判断是否需要读改写
-static bool isNeedRMW(const uint16_t page, const uint16_t addrInPage, uint16_t size)
+static bool isNeedRMW(uint16_t page, uint16_t addrInPage, uint16_t size)
 {
   uint8_t tmp;
   for(uint16_t i = 0; i < size; i++){
@@ -129,9 +129,10 @@ static HAL_StatusTypeDef writeDirectly(uint32_t addr, const uint8_t *data, uint1
  * @param size 写入大小:1-256
  * @return HAL_StatusTypeDef 返回的状态
  */
-HAL_StatusTypeDef W25Q64_Write_Byte(const uint16_t page, const uint16_t addrInPage, 
-                                    const uint8_t *data, uint16_t size)
+HAL_StatusTypeDef W25Q64_Write_Byte(uint16_t page, uint16_t addrInPage, const uint8_t *data, uint16_t size)
 {
+  if(page >= W25Q64_PAGE_CNT) return HAL_ERROR;
+  if((addrInPage + size) > W25Q64_PAGE_SIZE) return HAL_ERROR;
   // 记录返回状态，期间出错即返回
   HAL_StatusTypeDef res;
   // 写入的起始地址
@@ -172,7 +173,7 @@ HAL_StatusTypeDef W25Q64_Write_Byte(const uint16_t page, const uint16_t addrInPa
  * @param size 写入大小
  * @return HAL_StatusTypeDef 返回的状态
  */
-HAL_StatusTypeDef W25Q64_Write_Page(const uint16_t page, const uint8_t *data, uint16_t size)
+HAL_StatusTypeDef W25Q64_Write_Page(uint16_t page, const uint8_t *data, uint16_t size)
 {
   return W25Q64_Write_Byte(page, 0 , data, size);
 }
@@ -185,7 +186,7 @@ HAL_StatusTypeDef W25Q64_Write_Page(const uint16_t page, const uint8_t *data, ui
  * @param size 大小：1-4096
  * @return HAL_StatusTypeDef 状态
  */
-HAL_StatusTypeDef W25Q64_Write_Sector(const uint16_t sector, const uint8_t *data, uint16_t size)
+HAL_StatusTypeDef W25Q64_Write_Sector(uint16_t sector, const uint8_t *data, uint16_t size)
 {
   if(sector >= W25Q64_SECTOR_CNT) return HAL_ERROR;
   if(size > W25Q64_SECTOR_SIZE) return HAL_ERROR;
@@ -205,8 +206,7 @@ HAL_StatusTypeDef W25Q64_Write_Sector(const uint16_t sector, const uint8_t *data
 }
 
 // 从页内的指定地址开始读
-HAL_StatusTypeDef W25Q64_Read_Byte(const uint16_t page, const uint16_t addrInPage, 
-                                   uint8_t *data, uint16_t size)
+HAL_StatusTypeDef W25Q64_Read_Byte(uint16_t page, uint16_t addrInPage, uint8_t *data, uint16_t size)
 {
   if(page >= W25Q64_PAGE_CNT) return HAL_ERROR;
   if((size + addrInPage) > W25Q64_PAGE_SIZE) return HAL_ERROR;
@@ -226,7 +226,7 @@ HAL_StatusTypeDef W25Q64_Read_Byte(const uint16_t page, const uint16_t addrInPag
 }
 
 // 从页起始地址开始读
-HAL_StatusTypeDef W25Q64_Read_Page(const uint16_t page, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef W25Q64_Read_Page(uint16_t page, uint8_t *data, uint16_t size)
 {
   return W25Q64_Read_Byte(page, 0, data, size);
 }
@@ -239,7 +239,7 @@ HAL_StatusTypeDef W25Q64_Read_Page(const uint16_t page, uint8_t *data, uint16_t 
  * @param size 数据大小：1-4096
  * @return HAL_StatusTypeDef 返回状态
  */
-HAL_StatusTypeDef W25Q64_Read_Sector(const uint16_t sector, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef W25Q64_Read_Sector(uint16_t sector, uint8_t *data, uint16_t size)
 {
   if(sector >= W25Q64_SECTOR_CNT) return HAL_ERROR;
   if(size > W25Q64_SECTOR_SIZE) return HAL_ERROR;
@@ -264,7 +264,7 @@ HAL_StatusTypeDef W25Q64_Read_Sector(const uint16_t sector, uint8_t *data, uint1
  * @param sector 扇区号：0-2047
  * @return HAL_StatusTypeDef 返回状态
  */
-HAL_StatusTypeDef W25Q64_Erase_Sector(const uint16_t sector)
+HAL_StatusTypeDef W25Q64_Erase_Sector(uint16_t sector)
 {
   if(sector >= W25Q64_SECTOR_CNT) return HAL_ERROR;
   if(waitBusyTimeout()) return HAL_BUSY;

@@ -12,7 +12,7 @@
 #define ADC_HANDLE                      &hadc1
 #define ADC_TIM_HANDLE                  &htim3
 // #define ADC_TIM_CHANNEL                 TIM_CHANNEL_4
-#define ADC_NUMBER_OF_CONVERSION        6                 // 6个ADC检测通道
+#define ADC_NUMBER_OF_CONVERSION        2                 // ADC检测通道数量
 
 #define INFRARED_SENSOR_INTERVAL_MS     200               // 数字信号触发间隔
 
@@ -24,12 +24,12 @@ typedef struct {
 }MY_ADC_t;
 
 typedef enum {
-  ADC_CH_IR       = 0,      // 红外
-  ADC_CH_TEMP_E   = 1,      // 外部温度
-  ADC_CH_MQ7      = 2,      // 一氧化碳
-  ADC_CH_MQ4      = 3,      // 甲烷
-  ADC_CH_TEMP_I   = 4,      // 内部温度
-  ADC_CH_VREF     = 5,      // 参考电压
+  // ADC_CH_IR       = 0,      // 红外
+  // ADC_CH_TEMP_E   = 1,      // 外部温度
+  // ADC_CH_MQ7      = 2,      // 一氧化碳
+  // ADC_CH_MQ4      = 3,      // 甲烷
+  ADC_CH_TEMP_I   = 0,      // 内部温度
+  ADC_CH_VREF               // 参考电压
 } ADC_ChannelIndex_e;
 
 void ADC_Init(void);

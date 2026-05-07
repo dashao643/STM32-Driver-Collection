@@ -20,7 +20,7 @@
 static void OLED_WriteCmd(uint8_t *cmd, uint8_t size) 
 {
 #ifdef I2C_SOFTWARE
-  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, I2C_MEMADD_8BIT, cmd, size);
+  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, 1, cmd, size);
 #endif
 
 #ifdef I2C_HARDWARE
@@ -36,7 +36,7 @@ static void OLED_WriteCmd(uint8_t *cmd, uint8_t size)
 static void OLED_WriteSingleCmd(uint8_t cmd) 
 {
 #ifdef I2C_SOFTWARE
-  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, I2C_MEMADD_8BIT, &cmd, 1);
+  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, 1, &cmd, 1);
 #endif
 
 #ifdef I2C_HARDWARE
@@ -53,7 +53,7 @@ static void OLED_WriteSingleCmd(uint8_t cmd)
 static void OLED_WriteData(uint8_t data[], uint16_t length) 
 { 
 #ifdef I2C_SOFTWARE
-  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_DATA, I2C_MEMADD_8BIT, data, length);
+  I2C_Mem_Write(OLED_I2C_SLAVE_ADDR, OLED_I2C_DATA, 1, data, length);
 #endif
 
 #ifdef I2C_HARDWARE
@@ -178,7 +178,7 @@ void OLED_ShowChar(uint8_t x, uint8_t y, char ch)
 }
 
 // 显示字符串,创建字符串推荐不指定数组长度,或者手动加\0
-void OLED_ShowString(uint8_t x, uint8_t y, char str[]) 
+void OLED_ShowString(uint8_t x, uint8_t y, const char str[]) 
 {
   if (str == NULL)
     return;
@@ -221,7 +221,7 @@ void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen)
  * @param data 原始字节数组
  * @param size 数组大小 1-5 Byte
  */
-void OLED_ShowHexNumber(uint8_t x, uint8_t y, uint8_t data[], uint8_t size)
+void OLED_ShowHexNumber(uint8_t x, uint8_t y, const uint8_t data[], uint8_t size)
 {
   if (x == 0 || x > 4)
     return;

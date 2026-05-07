@@ -8,7 +8,7 @@
 
 #define MODBUS_INSTANCE                 USART1
 #define MODBUS_HANDLE                   &huart1
-#define MODBUS_UARTX_TIMEOUT            500
+#define MODBUS_UARTX_TIMEOUT            100
 #define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
 #define MODBUS_RX_BUFF_MINLENTH         8       // 最小帧长度
 #define MODBUS_SINGLE_WRITE_LENTH       9       // 单写操作帧长

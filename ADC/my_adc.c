@@ -36,9 +36,9 @@ static int32_t calTempESensor(uint16_t adcRaw)
   int32_t Rt = (10000L * mv) / (3300 - mv);
 
   if(Rt > 10000)
-    temp = 2500 - ((Rt - 10000) / 35);  // 降温
+      temp = 2500 - ((Rt - 10000) / 35);  // 降温
   else
-    temp = 2500 + ((10000 - Rt) / 30);  // 升温
+      temp = 2500 + ((10000 - Rt) / 30);  // 升温
 
   return temp;
 }
@@ -119,10 +119,10 @@ void ADC_SetReadFlag(void)
 int32_t ADC_GetValue(ADC_ChannelIndex_e ch)
 {
   switch(ch){
-    case ADC_CH_IR:      return calIrSensor(adc.DMAbuf[ch]);
-    case ADC_CH_TEMP_E:  return calTempESensor(adc.DMAbuf[ch]);
-    case ADC_CH_MQ7:     return calMQSensor(adc.DMAbuf[ch]);
-    case ADC_CH_MQ4:     return calMQSensor(adc.DMAbuf[ch]);
+    // case ADC_CH_IR:      return calIrSensor(adc.DMAbuf[ch]);
+    // case ADC_CH_TEMP_E:  return calTempESensor(adc.DMAbuf[ch]);
+    // case ADC_CH_MQ7:     return calMQSensor(adc.DMAbuf[ch]);
+    // case ADC_CH_MQ4:     return calMQSensor(adc.DMAbuf[ch]);
     case ADC_CH_TEMP_I:  return calTempISensor(adc.DMAbuf[ch]);
     case ADC_CH_VREF:    return calVREFSensor(adc.DMAbuf[ch]);
     default:             return 0;

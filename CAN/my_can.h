@@ -37,6 +37,6 @@ typedef struct
 
 void CAN_Init(void);
 void CAN_Task(void);
-HAL_StatusTypeDef CAN_Transmit(CAN_TxHeader_t *txHeader, uint8_t *data, uint8_t size);
+HAL_StatusTypeDef CAN_Transmit(const CAN_TxHeader_t *txHeader, const uint8_t *data, uint8_t size);
 
 #endif

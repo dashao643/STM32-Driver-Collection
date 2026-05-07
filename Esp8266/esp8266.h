@@ -8,7 +8,7 @@
 
 #define ESP8266_INSTANCE                 USART2
 #define ESP8266_HANDLE                   &huart2
-#define ESP8266_UARTX_TIMEOUT            500
+#define ESP8266_UARTX_TIMEOUT            100
 #define ESP8266_RX_BUFF_MAXLENTH         100      // 最大帧长度
 #define ESP8266_RX_BUFF_MINLENTH         12       // 最小帧长度
 #define ESP8266_TX_BUFF_MAXLENTH         30       // 回复帧最大帧长

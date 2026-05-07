@@ -153,7 +153,8 @@ static uint8_t receiveByte(void)
  * @param size 数据字节大小
  * @return HAL_StatusTypeDef 
  */
-HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, 
+                                const uint8_t *data, uint16_t size)
 {
   start();
 

@@ -17,16 +17,14 @@
 #define W25Q64_SECTOR_SIZE              4096           // 扇区大小
 #define W25Q64_SECTOR_CNT               2048           // 扇区数
 
-HAL_StatusTypeDef W25Q64_Write_Byte(const uint16_t page, const uint16_t addrInPage, 
-                                    const uint8_t *data, uint16_t size);
-HAL_StatusTypeDef W25Q64_Write_Page(const uint16_t page, const uint8_t *data, uint16_t size);
-HAL_StatusTypeDef W25Q64_Write_Sector(const uint16_t sector, const uint8_t *data, uint16_t size);
+HAL_StatusTypeDef W25Q64_Write_Byte(uint16_t page, uint16_t addrInPage, const uint8_t *data, uint16_t size);
+HAL_StatusTypeDef W25Q64_Write_Page(uint16_t page, const uint8_t *data, uint16_t size);
+HAL_StatusTypeDef W25Q64_Write_Sector(uint16_t sector, const uint8_t *data, uint16_t size);
 
-HAL_StatusTypeDef W25Q64_Read_Byte(const uint16_t page, const uint16_t addrInPage, 
-                                   uint8_t *data, uint16_t size);
-HAL_StatusTypeDef W25Q64_Read_Page(const uint16_t page, uint8_t *data, uint16_t size);
-HAL_StatusTypeDef W25Q64_Read_Sector(const uint16_t sector, uint8_t *data, uint16_t size);
+HAL_StatusTypeDef W25Q64_Read_Byte(uint16_t page, uint16_t addrInPage, uint8_t *data, uint16_t size);
+HAL_StatusTypeDef W25Q64_Read_Page(uint16_t page, uint8_t *data, uint16_t size);
+HAL_StatusTypeDef W25Q64_Read_Sector(uint16_t sector, uint8_t *data, uint16_t size);
 
-HAL_StatusTypeDef W25Q64_Erase_Sector(const uint16_t sector);
+HAL_StatusTypeDef W25Q64_Erase_Sector(uint16_t sector);
 
 #endif

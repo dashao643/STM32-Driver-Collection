@@ -94,7 +94,7 @@ void CAN_Task(void)
  * @param size 数据大小
  * @return HAL_StatusTypeDef 返回状态
  */
-HAL_StatusTypeDef CAN_Transmit(CAN_TxHeader_t *txHeader, uint8_t *data, uint8_t size)
+HAL_StatusTypeDef CAN_Transmit(const CAN_TxHeader_t *txHeader, const uint8_t *data, uint8_t size)
 {
   if(txHeader->stdId > CAN_STD_ID_MAX) return HAL_ERROR;
   if((txHeader->rtr != CAN_RTR_DATA) && (txHeader->rtr != CAN_RTR_REMOTE)) return HAL_ERROR;

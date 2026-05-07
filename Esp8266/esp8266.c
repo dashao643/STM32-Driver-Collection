@@ -20,7 +20,7 @@ const char AT_CmdList[][50] = {
   {"AT+CWMODE=2\r\n"},                                    // 设置为AP模式
   {"AT+CWSAP=\"dashao\",\"12345678\",6,4\r\n"},           // 配置WiFi
   {"AT+CIPMUX=1\r\n"},                                    // 设置多连接
-  {"AT+CIPSERVER=1,80\r\n"}                               // 开启服务
+  {"AT+CIPSERVER=1,80\r\n"}                               // 开启服务 IP：192.168.4.1
 };
 #define CMD_TOTAL_COUNT  (sizeof(AT_CmdList)/sizeof(AT_CmdList[0]))  // AT指令总数
 
@@ -165,37 +165,7 @@ static void cleanString(char *str)
   // 结尾补结束符
   str[j] = '\0'; 
 }
-// static void frameReply(const uint8_t txID, const char* data)
-// {
-//   uint8_t headLen = 0;
-//   uint8_t dataLen = strlen(data);
-//   uint8_t strBack[5] = {0};
 
-// 	sprintf((char*)esp8266.uart.txBuf, "AT+CIPSEND=%u,%u\r\n", txID, dataLen);    // 转成字符
-//   headLen = strlen((char*)esp8266.uart.txBuf);
-
-//   if(headLen > esp8266.uart.txMaxSize)
-//     return;
-
-//   UART_Transmit(&esp8266.uart, headLen, BLOCK, 100);
-
-//   // 阻塞接收
-//   // HAL_UART_Receive(ESP8266_HANDLE, strBack, sizeof(strBack), 20);
-
-//   // if(strstr((char*)strBack, "OK") || strstr((char*)strBack, ">")){
-//   //   if(dataLen > esp8266.uart.txMaxSize)
-//   //     dataLen = esp8266.uart.txMaxSize;
-
-//   //   memcpy(esp8266.uart.txBuf, (const uint8_t*)data, dataLen);
-
-//     HAL_Delay(1);
-//     UART_Transmit(&esp8266.uart, dataLen, BLOCK, 100);
-//   // }
-//   // else{
-//     LED_RED_TOGGLE();
-//   // }
-  
-// }
 static void frameReply(const uint8_t txID, const char* data)
 {
   char tx_buf[30] = {0};
@@ -257,7 +227,7 @@ static void frameExecute(void)
 
 static void frameProcess(void)
 {
-  printf("%s\n",esp8266.uart.rxBuf);
+  // printf("%s\n",esp8266.uart.rxBuf);
   // AT指令已配置，校验数据帧头 + 执行指令
   if(esp8266.setConfigFlag) {
     if(!frameHeaderCheck())

@@ -11,7 +11,9 @@
 // 1: ERROR
 // 2: BUSY
 // 3: TIMEOUT
-HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size);
-HAL_StatusTypeDef I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size);
+HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, 
+                                const uint8_t *data, uint16_t size);
+HAL_StatusTypeDef I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, 
+                               uint8_t *data, uint16_t size);
 
 #endif
