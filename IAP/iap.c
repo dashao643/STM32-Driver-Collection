@@ -4,25 +4,13 @@
 #include <stdint.h>
 #include <string.h>
 
+// 不使用外部FLASH，边接收边写入内部FLASH
+
 /*
 FLASH地址:        0x8000000 - 0x800FFFF 64KB
 Bootloader地址:   0x8000000 - 0x8003FFF 16KB
 App代码地址:      0x8004000 - 0x800FFFF 48KB
 RAM地址：         0x20000000 - 0x20004FFF
-
-此程序存储在flash起始区，初始上电时和从app跳转时执行此程序，
-程序起始读取RAM中的一段数据，
-若不符合，则关闭所有额外的外设，跳转到app程序地址正常执行app程序
-若符合，则先发送ack，随后接收上位机数据，通过串口分包接收字节数据，写入内部falsh，写入完成后跳转到app程序地址，iap升级完成
-
-上位机视角：发送握手信号，等待stm32回应。stm32app程序收到握手信号，跳转到bootloader程序，回应ack，
-上位机收到ack后，再发送ack，之后开始传输数据，stm32接收数据
-
-写入只能按半字：FLASH_TYPEPROGRAM_HALFWORD
-HAL_StatusTypeDef HAL_FLASH_Program(uint32_t TypeProgram, uint32_t Address, uint64_t Data);
-HAL_StatusTypeDef HAL_FLASH_Unlock(void);
-HAL_StatusTypeDef HAL_FLASH_Lock(void);
-HAL_StatusTypeDef  HAL_FLASHEx_Erase(FLASH_EraseInitTypeDef *pEraseInit, uint32_t *PageError);
 */
 
 static IAP_e state = IAP_SEND_ACK;
@@ -31,14 +19,14 @@ static uint8_t packageCnt = 0;
 
 static void response(uint8_t byte)
 {
-#if IAP_MODEL == IAP_UART
+#if IAP_MODEL == IAP_MODEL_FROM_UART
   HAL_UART_Transmit(IAP_HANDLE, &byte, 1, IAP_TX_TIMEOUT);
 #endif 
 }
 
 static bool waitPackage(void)
 {
-#if IAP_MODEL == IAP_UART
+#if IAP_MODEL == IAP_MODEL_FROM_UART
   if(HAL_UART_Receive(IAP_HANDLE, rxBuf, IAP_RX_BUFF_MAXLENTH, IAP_RX_TIMEOUT) == HAL_OK){
     return true;
   }
@@ -46,11 +34,11 @@ static bool waitPackage(void)
   return false;
 }
 
-static void writeFlash(void)
+static bool writeFlash(void)
 {
   if(packageCnt >=  48){
     response(IAP_ERROR_OVERFLOW);
-    return;
+    return false;
   }
 
   uint32_t eraseRes = 0;
@@ -67,10 +55,10 @@ static void writeFlash(void)
   if(eraseRes != 0xFFFFFFFF){
     response(IAP_ERROR_ERASE);
     HAL_FLASH_Lock();
-    return;
+    return false;
   }
   // 一次写入2Byte,循环512次,一次跳2个数
-  for(uint8_t i = 0; i < 1024; i+=2){
+  for(uint16_t i = 0; i < 1024; i+=2){
     uint16_t data = rxBuf[i] | (rxBuf[i + 1] << 8);
     HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, addr, data);
     addr += 2;
@@ -79,6 +67,8 @@ static void writeFlash(void)
   HAL_FLASH_Lock();
 
   packageCnt++;
+
+  return true;
 }
 
 bool IAP_RAM_Check(void)
@@ -110,14 +100,23 @@ void IAP_Run(void)
     break;
   }
   case IAP_WRITE_FLASH:{
-    writeFlash();
+    if(!writeFlash()){
+      while(1);
+    }
     state = IAP_SEND_ACK;
     break;
   }
   case IAP_FINISH:{
-    HAL_UART_Transmit(IAP_HANDLE, &packageCnt, 1, IAP_TX_TIMEOUT);
-    IAP_DeInit();
+    // response(packageCnt);
+    // response(0xFF);
+
+    // HAL_Delay(10);
+    // while(__HAL_UART_GET_FLAG(IAP_HANDLE, UART_FLAG_TC) == RESET);
+    // HAL_UART_Abort_IT(IAP_HANDLE);
+
     IAP_RAM_Clear();
+    // HAL_NVIC_SystemReset();
+    // IAP_DeInit();
     IAP_JumpApp();
     return;
   }
@@ -126,33 +125,48 @@ void IAP_Run(void)
   }
 }
 
-void IAP_DeInit(void)
-{
-  // uart 
-  HAL_GPIO_DeInit(GPIOA, GPIO_PIN_9|GPIO_PIN_10);
-  // spi 
-  HAL_GPIO_DeInit(GPIOB, GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5);
-  // cs 
-  HAL_GPIO_DeInit(SPI1_CS1_GPIO_Port, SPI1_CS1_Pin);
-  // led
-  HAL_GPIO_DeInit(LED_RED_GPIO_Port, LED_RED_Pin);
-  HAL_GPIO_DeInit(LED_GREEN_GPIO_Port, LED_GREEN_Pin);
-  HAL_GPIO_DeInit(LED_BLUE_GPIO_Port, LED_BLUE_Pin);
-}
-
 void IAP_JumpApp(void)
 {
   typedef void (*pFunction)(void);
   pFunction Jump_To_Application;
-  uint32_t JumpAddress;
 
-  __disable_irq();
+  uint32_t appStack = *(__IO uint32_t*)IAP_APP_ADDR;
+  if ((appStack & 0x20000000) == 0) {
+    while (1);
+  }
 
-  // 堆栈指针
-  JumpAddress = *(__IO uint32_t*)(IAP_APP_ADDR + 4);
+  uint32_t JumpAddress = *(__IO uint32_t*)(IAP_APP_ADDR + 4);
   Jump_To_Application = (pFunction)JumpAddress;
 
-  // 设置堆栈
-  __set_MSP(*(__IO uint32_t*)IAP_APP_ADDR);
+  __disable_irq();
+  SysTick->CTRL = 0;
+  SysTick->LOAD = 0;
+  SysTick->VAL  = 0;
+
+  HAL_DeInit();
+
+  __set_MSP(appStack);
+  //   // 跳转前重新开中断，否则 app 的 SysTick IRQ 无法触发
+  // __enable_irq();  
+
   Jump_To_Application();
+}
+
+void IAP_DeInit(void)
+{
+// #if IAP_MODEL == IAP_MODEL_FROM_UART 
+//   HAL_GPIO_DeInit(GPIOA, GPIO_PIN_9|GPIO_PIN_10);
+// #endif
+
+// #if IAP_MODEL == IAP_MODEL_FROM_EXT_FLASH 
+//   HAL_GPIO_DeInit(GPIOB, GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5);
+// #endif
+
+//   // spi cs 
+//   HAL_GPIO_DeInit(SPI1_CS1_GPIO_Port, SPI1_CS1_Pin);
+
+//   __HAL_RCC_USART1_CLK_DISABLE();
+//   __HAL_RCC_SPI1_CLK_DISABLE();
+//   __HAL_RCC_GPIOA_CLK_DISABLE();
+//   __HAL_RCC_GPIOB_CLK_DISABLE();
 }

@@ -23,7 +23,8 @@
 #define MODBUS_FUNC_WRITE_SINGLE_COIL   0x05    // 写单个线圈                    // 支持
 #define MODBUS_FUNC_WRITE_SINGLE_REG    0x06    // 写单个保持寄存器              
 #define MODBUS_FUNC_WRITE_MULTI_COILS   0x0F    // 写多个线圈
-#define MODBUS_FUNC_WRITE_MULTI_REGS    0x10    // 写多个保持寄存器               // 正在支持
+#define MODBUS_FUNC_WRITE_MULTI_REGS    0x10    // 写多个保持寄存器               // 支持
+#define MODBUS_FUNC_IAP_HANDSHAKE       0x42     // 进入升级模式（自定义功能码）   // 正在支持
 
 // 错误码
 #define MODBUS_FUNC_ERROR               0x01    // 非法功能码

@@ -34,12 +34,17 @@
 #define REG_ADDR_MAX	  0x0006  // 最大寄存器地址
 #define REG_CNT_MAX     6       // 寄存器地址数量
 
-bool Modbus_App_Check_Address(uint16_t addr);
-bool Modbus_App_Check_RegCount(uint16_t cnt);
+// IAP升级
+#define IAP_MAGIC_ADDR  0x20004FFC    // 标志存储地址，RAM最后四个字节
+#define IAP_MAGIC_VAL   0xA5A5A5A5
+
+bool Modbus_App_Check_Address(uint8_t func, uint16_t addr);
+bool Modbus_App_Check_RegCount(uint8_t func, uint16_t cnt);
 bool Modbus_App_Check_WriteValue(uint8_t func, uint16_t regCnt, uint8_t byte);
 
 uint16_t Modbus_App_Read_InputReg(uint16_t addr);
 void Modbus_App_Write_Coil(uint16_t addr, uint8_t value);
-bool Modbus_App_Write_Reg(uint16_t addr, uint8_t value[]);
+bool Modbus_App_Write_Reg(uint16_t addr, const uint8_t value[]);
+void Modbus_App_IAP(void);
 
 #endif

@@ -1,6 +1,7 @@
 #include "modbus.h"
 #include "general.h"
 #include "modbus_app.h"
+#include "my_uart.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
 
@@ -77,7 +78,8 @@ static bool funcCheck(void)
       if(modbus.uart.rxSize != MODBUS_SINGLE_WRITE_LENTH)
         return false;
     case MODBUS_FUNC_WRITE_MULTI_COILS:
-    case MODBUS_FUNC_WRITE_MULTI_REGS:{
+    case MODBUS_FUNC_WRITE_MULTI_REGS:
+    case MODBUS_FUNC_IAP_HANDSHAKE:{
       modbus.record.isRead = false;
       break;
     }
@@ -94,7 +96,7 @@ static bool regArrCheck(void)
   regArr.bytes[0] = modbus.uart.rxBuf[3];
   regArr.bytes[1] = modbus.uart.rxBuf[2];
   
-  if(!Modbus_App_Check_Address(regArr.word))
+  if(!Modbus_App_Check_Address(modbus.record.func, regArr.word))
     return false;
 
   modbus.record.regArr = regArr.word;
@@ -108,16 +110,12 @@ static bool regCntCheck(void)
   // 先赋值低字节，再赋值高字节
   regCnt.bytes[0] = modbus.uart.rxBuf[5];
   regCnt.bytes[1] = modbus.uart.rxBuf[4];
-  
-  if(modbus.record.func == MODBUS_FUNC_WRITE_SINGLE_COIL){
-    if(regCnt.word != 1)
-      return false;
-  }
-  else if(modbus.record.func == MODBUS_FUNC_WRITE_MULTI_REGS){
+
+  if(modbus.record.func == MODBUS_FUNC_WRITE_MULTI_REGS){
     if(modbus.uart.rxSize != (MODBUS_SINGLE_WRITE_LENTH + modbus.uart.rxBuf[6]))
       return false;
   }
-  if(!Modbus_App_Check_RegCount(regCnt.word))
+  if(!Modbus_App_Check_RegCount(modbus.record.func, regCnt.word))
     return false;
 
   modbus.record.regCnt = regCnt.word;
@@ -147,13 +145,18 @@ static bool crcCheck(void)
 static void errorReply(const uint8_t errorCode)
 {
   U16Union crcCal = {0};
-  uint8_t reply[5] = {MODBUS_SLAVE_ADDR,modbus.uart.rxBuf[1] | 0x80,errorCode,0,0};
-  crcCal.word = CRC16_Modbus(reply, 3);
-  reply[3] = crcCal.bytes[0];
-  reply[4] = crcCal.bytes[1];
+  // 用全局 txBuf
+  modbus.uart.txBuf[0] = MODBUS_SLAVE_ADDR;
+  modbus.uart.txBuf[1] = modbus.uart.rxBuf[1] | 0x80;
+  modbus.uart.txBuf[2] = errorCode;
 
-  modbus.uart.txBuf = reply;
-  UART_Transmit(&modbus.uart, sizeof(reply), BLOCK, MODBUS_UARTX_TIMEOUT);
+  // CRC
+  crcCal.word = CRC16_Modbus(modbus.uart.txBuf, 3);
+  modbus.uart.txBuf[3] = crcCal.bytes[0];
+  modbus.uart.txBuf[4] = crcCal.bytes[1];
+
+  // 发送长度 5
+  UART_Transmit(&modbus.uart, 5, DMA, MODBUS_UARTX_TIMEOUT);
 }
 
 /**
@@ -304,6 +307,11 @@ static void frameExecute(void)
     Modbus_App_Write_Reg(modbus.record.regArr,modbus.uart.rxBuf + 6);
     break;
   }
+  case MODBUS_FUNC_IAP_HANDSHAKE:{
+    LED_BLUE_TOGGLE();
+    Modbus_App_IAP();
+    break;
+  }
   }
   return;
 }
@@ -324,7 +332,7 @@ static void frameReply(void)
   modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[0];
   modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[1];
 
-  UART_Transmit(&modbus.uart, modbus.record.txIndex, DMA, 0);
+  UART_Transmit(&modbus.uart, modbus.record.txIndex, BLOCK, MODBUS_UARTX_TIMEOUT);
 }
 
 /**

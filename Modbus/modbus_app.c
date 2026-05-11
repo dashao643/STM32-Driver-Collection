@@ -4,18 +4,34 @@
 #include "gpio.h"
 #include "dht11.h"
 #include "my_rtc.h"
+#include <stdint.h>
 
-bool Modbus_App_Check_Address(uint16_t addr)
+// 检验寄存器地址
+bool Modbus_App_Check_Address(uint8_t func, uint16_t addr)
 {
-  if((addr == 0 )|| (addr > REG_ADDR_MAX)) 
-    return false;
+  if((addr == 0 )|| (addr > REG_ADDR_MAX)) return false;
+  if(func == MODBUS_FUNC_IAP_HANDSHAKE && addr != 0x01) return false;
+
   return true;
 }
+/*
+  if(modbus.record.func == MODBUS_FUNC_WRITE_SINGLE_COIL){
+    if(regCnt.word != 1)
+      return false;
+  }
 
-bool Modbus_App_Check_RegCount(uint16_t cnt)
+  else if(modbus.record.func == MODBUS_FUNC_IAP_HANDSHAKE){
+    if(regCnt.word != 1)
+      return false;
+  }
+*/
+// 校验寄存器数量
+bool Modbus_App_Check_RegCount(uint8_t func, uint16_t cnt)
 {
-  if((cnt == 0) || (cnt > REG_CNT_MAX)) 
-    return false;
+  if((cnt == 0) || (cnt > REG_CNT_MAX)) return false;
+  if(func == MODBUS_FUNC_WRITE_SINGLE_COIL && cnt != 1) return false;
+  else if(func == MODBUS_FUNC_IAP_HANDSHAKE && cnt != 1) return false;
+
   return true;
 }
 
@@ -65,7 +81,7 @@ void Modbus_App_Write_Coil(uint16_t addr, uint8_t value)
 #endif
 }
 
-bool Modbus_App_Write_Reg(uint16_t addr, uint8_t value[])
+bool Modbus_App_Write_Reg(uint16_t addr, const uint8_t value[])
 {
   // 设置日期和时间，地址从年开始
 #ifdef MY_RTC
@@ -84,4 +100,12 @@ bool Modbus_App_Write_Reg(uint16_t addr, uint8_t value[])
   return true;
 }
 
+void Modbus_App_IAP(void)
+{
+  __disable_irq();
+
+  *(uint32_t*)IAP_MAGIC_ADDR = IAP_MAGIC_VAL;
+  
+  HAL_NVIC_SystemReset();
+}
 
