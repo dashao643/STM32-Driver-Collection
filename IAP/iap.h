@@ -5,14 +5,14 @@
 #include "usart.h"
 #include <stdbool.h>
 
-#define BOOTLOADER_SIZE               0x4000 // 16KB
+#define BOOTLOADER_SIZE               0x4000                // 16KB
 
-#define IAP_MODEL_FROM_UART           1   // 从串口升级
-#define IAP_MODEL_FROM_CAN            2   // 从CAN通信升级
-#define IAP_MODEL_FROM_WIFI           3   // 从WiFi升级
-#define IAP_MODEL_FROM_EXT_FLASH      4   // 从SPI外部Flash升级
+/********************* ↓选择IAP传输方式↓ *******************/
+#define IAP_MODEL_FROM_UART           1                    // 从串口升级
+#define IAP_MODEL_FROM_EXT_FLASH      2                    // 从SPI外部Flash升级
 
-#define IAP_MODEL                     IAP_MODEL_FROM_UART    // 选择IAP传输方式
+#define IAP_MODEL                     IAP_MODEL_FROM_UART  
+/********************* ↑选择IAP传输方式↑ *******************/
 
 #if IAP_MODEL == IAP_MODEL_FROM_UART 
 #define IAP_INSTANCE                  USART1
@@ -29,8 +29,9 @@
 #define IAP_APP_ADDR                  FLASH_BASE + BOOTLOADER_SIZE  // 0x08004000
 #define IAP_ACK_BYTE                  0x79
 
-#define IAP_ERROR_OVERFLOW            0xFF
-#define IAP_ERROR_ERASE               0xFE
+#define IAP_ERROR_OVERFLOW            0xFF                          // 程序包溢出
+#define IAP_ERROR_ERASE               0xFE                          // FLASH擦除错误
+#define IAP_ERROR_APPSTACK            0xFD                          // APP程序栈指针错误
 
 // 1 检查内存 + 发送ack
 // 2 等包，收到包->3 收到过包+超时 ->4 没收到过包+超时->4 error
@@ -45,7 +46,6 @@ typedef enum {
 } IAP_e;
 
 bool IAP_RAM_Check(void);
-void IAP_RAM_Clear(void);
 void IAP_Run(void);
 void IAP_JumpApp(void);
 

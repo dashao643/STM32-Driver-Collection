@@ -102,8 +102,6 @@ bool Modbus_App_Write_Reg(uint16_t addr, const uint8_t value[])
 
 void Modbus_App_IAP(void)
 {
-  __disable_irq();
-
   *(uint32_t*)IAP_MAGIC_ADDR = IAP_MAGIC_VAL;
   
   HAL_NVIC_SystemReset();

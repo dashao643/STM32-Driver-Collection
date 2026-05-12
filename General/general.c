@@ -122,3 +122,9 @@ uint16_t CRC16_Modbus(uint8_t *buf, uint16_t len)
   }
   return crc;
 }
+
+void NVIC_SetVectorTable(uint32_t offset)
+{
+  SCB->VTOR = offset;
+  __enable_irq();
+}
