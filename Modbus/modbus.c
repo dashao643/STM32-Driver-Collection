@@ -2,6 +2,7 @@
 #include "general.h"
 #include "modbus_app.h"
 #include "my_uart.h"
+#include "rs485.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
 
@@ -9,7 +10,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "gpio.h"
+#include "led.h"
+
+#define uart rs485.uart     // 字段别名映射
 
 static uint8_t rxBuf[MODBUS_RX_BUFF_MAXLENTH];
 static uint8_t txBuf[MODBUS_TX_BUFF_MAXLENTH];
@@ -115,6 +118,10 @@ static bool regCntCheck(void)
     if(modbus.uart.rxSize != (MODBUS_SINGLE_WRITE_LENTH + modbus.uart.rxBuf[6]))
       return false;
   }
+  if(modbus.record.func == MODBUS_FUNC_IAP_HANDSHAKE){
+    if(modbus.uart.rxSize != MODBUS_RX_BUFF_MINLENTH)
+      return false;
+  }
   if(!Modbus_App_Check_RegCount(modbus.record.func, regCnt.word))
     return false;
 
@@ -156,7 +163,12 @@ static void errorReply(const uint8_t errorCode)
   modbus.uart.txBuf[4] = crcCal.bytes[1];
 
   // 发送长度 5
+#ifdef MODBUS_UART
   UART_Transmit(&modbus.uart, 5, DMA, MODBUS_UARTX_TIMEOUT);
+#endif
+#ifdef MODBUS_RS485
+  RS485_Transmit(&modbus.rs485, 5, DMA, MODBUS_UARTX_TIMEOUT);
+#endif
 }
 
 /**
@@ -308,7 +320,6 @@ static void frameExecute(void)
     break;
   }
   case MODBUS_FUNC_IAP_HANDSHAKE:{
-    LED_BLUE_TOGGLE();
     Modbus_App_IAP();
     break;
   }
@@ -332,7 +343,13 @@ static void frameReply(void)
   modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[0];
   modbus.uart.txBuf[modbus.record.txIndex++] = CRC16.bytes[1];
 
+#ifdef MODBUS_UART
   UART_Transmit(&modbus.uart, modbus.record.txIndex, BLOCK, MODBUS_UARTX_TIMEOUT);
+#endif
+
+#ifdef MODBUS_RS485
+  RS485_Transmit(&modbus.rs485, modbus.record.txIndex, BLOCK, MODBUS_UARTX_TIMEOUT);
+#endif
 }
 
 /**
@@ -354,8 +371,10 @@ void Modbus_Init(void)
   HAL_UART_Receive_DMA(MODBUS_HANDLE, modbus.uart.rxBuf, modbus.uart.rxMaxSize);
   __HAL_UART_ENABLE_IT(MODBUS_HANDLE, UART_IT_IDLE);
 
+  /******************* RS485 *******************/
+  RS485_RECEIVE_MODE();
+  modbus.rs485.transmitFlag = false;
   /******************* Modbus *******************/
-  clearRecord();
   modbus.state = MODBUS_STATE_IDLE;
 }
 
@@ -368,9 +387,20 @@ void Modbus_Task(void)
   if(modbus.uart.frameEnd){
     frameProcess();
   }
+  RS485_Task(&modbus.rs485);
 }
 
 My_UART_t* Modbus_Get_UART(void)
 {
   return &modbus.uart;
+}
+
+void Modbus_Transmit(uint8_t *data, uint8_t size)
+{
+  if(size > MODBUS_TX_BUFF_MAXLENTH) 
+    size = MODBUS_TX_BUFF_MAXLENTH;
+  for(uint8_t i = 0; i < size; i++){
+    modbus.uart.txBuf[i] = *data;
+  }
+  RS485_Transmit(&modbus.rs485, size, BLOCK, MODBUS_UARTX_TIMEOUT);
 }

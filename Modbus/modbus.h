@@ -1,13 +1,22 @@
 #ifndef __MODBUS_H__
 #define __MODBUS_H__
 
-#include "my_uart.h"
+// #include "my_uart.h"
+#include "rs485.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MODBUS_INSTANCE                 USART1
-#define MODBUS_HANDLE                   &huart1
+/********************* ↓选择mobus硬件层协议↓ *******************/
+// #define MODBUS_UART
+#define MODBUS_RS485
+/********************* ↑选择mobus硬件层协议↑ *******************/
+
+// #define MODBUS_INSTANCE                 USART1
+// #define MODBUS_HANDLE                   &huart1
+#define MODBUS_INSTANCE                 USART3
+#define MODBUS_HANDLE                   &huart3
+
 #define MODBUS_UARTX_TIMEOUT            100
 #define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
 #define MODBUS_RX_BUFF_MINLENTH         8       // 最小帧长度
@@ -54,8 +63,14 @@ typedef struct {
   uint16_t txIndex;
 } Modbus_Record_t;
 
+// typedef struct {
+//   My_UART_t uart;
+//   Modbus_State_e state;
+//   Modbus_Record_t record;
+// } Modbus_t;
+
 typedef struct {
-  My_UART_t uart;
+  RS485_t rs485;
   Modbus_State_e state;
   Modbus_Record_t record;
 } Modbus_t;
@@ -63,5 +78,6 @@ typedef struct {
 void Modbus_Init(void);
 void Modbus_Task(void);
 My_UART_t* Modbus_Get_UART(void);
+void Modbus_Transmit(uint8_t *data, uint8_t size);
 
 #endif

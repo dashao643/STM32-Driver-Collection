@@ -10,6 +10,8 @@
 #define BOOTLOADER_SIZE         0x4000 // 16KB
 #define NVIC_OFFSET             (FLASH_BASE | BOOTLOADER_SIZE) // 0x08004000
 
+#define UNUSED_FUNC             __attribute__((unused))
+
 typedef union
 {
   uint8_t bytes[2];

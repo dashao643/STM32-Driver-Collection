@@ -1,5 +1,6 @@
 #include "my_adc.h"
 #include "adc.h"
+#include "general.h"
 #include "gpio.h"
 #include "tim.h"
 #include "stm32f1xx_hal.h"
@@ -10,11 +11,11 @@
 static MY_ADC_t adc = {0};
 
 // 返回值单位：毫伏
-static int32_t calIrSensor(uint16_t adcRow);
-static int32_t calTempESensor(uint16_t adcRow);
-static int32_t calMQSensor(uint16_t adcRow);
-static int32_t calTempISensor(uint16_t adcRow);
-static int32_t calVREFSensor(uint16_t adcRow);
+static int32_t calIrSensor(uint16_t adcRow)UNUSED_FUNC;
+static int32_t calTempESensor(uint16_t adcRow)UNUSED_FUNC;
+static int32_t calMQSensor(uint16_t adcRow)UNUSED_FUNC;
+static int32_t calTempISensor(uint16_t adcRow)UNUSED_FUNC;
+static int32_t calVREFSensor(uint16_t adcRow)UNUSED_FUNC;
 
 // 反射式红外传感器
 static int32_t calIrSensor(uint16_t adcRaw)

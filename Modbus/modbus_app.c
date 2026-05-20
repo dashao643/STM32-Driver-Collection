@@ -1,10 +1,19 @@
 #include "modbus_app.h"
 #include "modbus.h"
 
-#include "gpio.h"
-#include "dht11.h"
-#include "my_rtc.h"
 #include <stdint.h>
+
+#ifdef LED
+#include "led.h"
+#endif
+
+#ifdef DHT11
+#include "dht11.h"
+#endif
+
+#ifdef MY_RTC
+#include "my_rtc.h"
+#endif
 
 // 检验寄存器地址
 bool Modbus_App_Check_Address(uint8_t func, uint16_t addr)
@@ -85,7 +94,7 @@ bool Modbus_App_Write_Reg(uint16_t addr, const uint8_t value[])
 {
   // 设置日期和时间，地址从年开始
 #ifdef MY_RTC
-  if((addr != RTC_DATE_YREA) || (value[0] != 6))
+  if((addr != RTC_DATE_YEAR) || (value[0] != 6))
     return false;
   RTC_TimeTypeDef time = {0};
   RTC_DateTypeDef date = {0};

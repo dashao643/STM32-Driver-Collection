@@ -19,7 +19,7 @@
 #define DHT11_HUMI	    0x0002
 
 // 保持寄存器地址定义
-#define RTC_DATE_YREA      0x0001
+#define RTC_DATE_YEAR      0x0001
 #define RTC_DATE_MONTH     0x0002
 #define RTC_DATE_DAY       0x0003
 #define RTC_TIME_HOUR      0x0004
