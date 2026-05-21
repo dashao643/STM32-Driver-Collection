@@ -4,6 +4,7 @@
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx_hal_def.h"
 
+#include <stdint.h>
 #include <stdio.h>
 
 #include "led.h"
@@ -248,15 +249,11 @@ HAL_StatusTypeDef NRF24L01_ReadReg(uint8_t regAddr, uint8_t *data)
 
 void NRF24L01_Init(void)
 {
-  // 设定接收模式有时设置失败，先彻底掉电
-  NRF24L01_WriteReg(NRF24L01_ADDR_CONFIG, 0x00);
-  HAL_Delay(10);
-#ifdef NRF24L01_MASTER
-  NRF24L01_WriteReg(NRF24L01_ADDR_CONFIG, NRF24L01_REG_CONFIG_TX);
-#endif
-#ifdef NRF24L01_SLAVE
-  NRF24L01_WriteReg(NRF24L01_ADDR_CONFIG, NRF24L01_REG_CONFIG_RX);
-#endif
+  // 初始配置时CE拉低
+  CE_LOW();
+  HAL_Delay(100);
+  NRF24L01_WriteReg(NRF24L01_ADDR_CONFIG, NRF24L01_REG_CONFIG_PWR_UP);
+  HAL_Delay(2);
   NRF24L01_WriteReg(NRF24L01_ADDR_EN_AA, NRF24L01_REG_EN_AA);
   NRF24L01_WriteReg(NRF24L01_ADDR_EN_RXADDR, NRF24L01_REG_EN_RXADDR);
   NRF24L01_WriteReg(NRF24L01_ADDR_SETUP_AW, NRF24L01_REG_SETUP_AW);
@@ -272,12 +269,16 @@ void NRF24L01_Init(void)
   
 #ifdef NRF24L01_MASTER
   // 主机CE初始低电平
+  NRF24L01_WriteReg(NRF24L01_ADDR_CONFIG, NRF24L01_REG_CONFIG_TX);
   CE_LOW();
 #endif
 #ifdef NRF24L01_SLAVE
   // 从机CE保持高电平
+  NRF24L01_WriteReg(NRF24L01_ADDR_CONFIG, NRF24L01_REG_CONFIG_RX);
   CE_HIGH();
 #endif
+  flushTx();
+  flushRx();
 }
 
 void NRF24L01_Task(void)

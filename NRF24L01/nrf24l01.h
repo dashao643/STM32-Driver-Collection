@@ -18,6 +18,7 @@
 #define NRF24L01_ADDR_SIZE                5
 #define NRF24L01_DATA_SIZE                1                 // 固定数据长度
 
+#define NRF24L01_REG_CONFIG_PWR_UP        0x0A              // 仅上电
 #define NRF24L01_REG_CONFIG_TX            0x0A              // 上电 + PTX
 #define NRF24L01_REG_CONFIG_RX            0x0B              // 上电 + PRX
 #define NRF24L01_REG_EN_AA                0x3F              // 所有通道启用自动确认
