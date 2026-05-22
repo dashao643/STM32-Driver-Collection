@@ -2,8 +2,12 @@
 #define __MY_CAN_H__
 
 #include "can.h"
+#include "can_app.h"
 #include <stdint.h>
 #include <stdbool.h>
+
+// #define PRINT_DEBUG
+#define MODBUS_DEBUG
 
 #define CAN_INSTANCE                  CAN1
 #define CAN_HANDLE                    &hcan
@@ -15,12 +19,7 @@
 #define CAN_MASK_MIN                  0
 #define CAN_MASK_MAX                  127
 
-typedef struct
-{
-  // uint8_t ide;                    
-  uint16_t stdId;                    // 0 - 2047
-  uint8_t rtr;                       // CAN_RTR_DATA / CAN_RTR_REMOTE
-}CAN_TxHeader_t;
+// 目前只支持标准id
 
 typedef struct
 {
@@ -35,8 +34,11 @@ typedef struct
   uint8_t rxOut;
 }CAN_RxQueue_t;
 
+void CAN_Debug(void);
+
 void CAN_Init(void);
 void CAN_Task(void);
-HAL_StatusTypeDef CAN_Transmit(const CAN_TxHeader_t *txHeader, const uint8_t *data, uint8_t size);
+HAL_StatusTypeDef CAN_SendDataFrame(uint16_t stdId, const uint8_t *data, uint8_t size);
+HAL_StatusTypeDef CAN_SendRemoteFrame(uint16_t stdId);
 
 #endif
