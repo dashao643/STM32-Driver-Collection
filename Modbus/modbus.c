@@ -1,8 +1,6 @@
 #include "modbus.h"
 #include "general.h"
 #include "modbus_app.h"
-#include "my_uart.h"
-#include "rs485.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
 
@@ -12,7 +10,9 @@
 
 #include "led.h"
 
+#ifdef MODBUS_RS485
 #define uart rs485.uart     // 字段别名映射
+#endif
 
 static uint8_t rxBuf[MODBUS_RX_BUFF_MAXLENTH];
 static uint8_t txBuf[MODBUS_TX_BUFF_MAXLENTH];
@@ -372,8 +372,10 @@ void Modbus_Init(void)
   __HAL_UART_ENABLE_IT(MODBUS_HANDLE, UART_IT_IDLE);
 
   /******************* RS485 *******************/
+#ifdef MODBUS_RS485
   RS485_RECEIVE_MODE();
   modbus.rs485.transmitFlag = false;
+#endif
   /******************* Modbus *******************/
   modbus.state = MODBUS_STATE_IDLE;
 }
@@ -387,7 +389,9 @@ void Modbus_Task(void)
   if(modbus.uart.frameEnd){
     frameProcess();
   }
+#ifdef MODBUS_RS485
   RS485_Task(&modbus.rs485);
+#endif
 }
 
 My_UART_t* Modbus_Get_UART(void)
@@ -402,5 +406,10 @@ void Modbus_Transmit(uint8_t *data, uint8_t size)
   for(uint8_t i = 0; i < size; i++){
     modbus.uart.txBuf[i] = *data;
   }
+#ifdef MODBUS_UART
+  UART_Transmit(&modbus.uart, size, BLOCK, MODBUS_UARTX_TIMEOUT);
+#endif
+#ifdef MODBUS_RS485
   RS485_Transmit(&modbus.rs485, size, BLOCK, MODBUS_UARTX_TIMEOUT);
+#endif
 }

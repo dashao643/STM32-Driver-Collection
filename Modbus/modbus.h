@@ -1,9 +1,6 @@
 #ifndef __MODBUS_H__
 #define __MODBUS_H__
 
-// #include "my_uart.h"
-#include "rs485.h"
-
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -11,6 +8,13 @@
 // #define MODBUS_UART
 #define MODBUS_RS485
 /********************* ↑选择mobus硬件层协议↑ *******************/
+
+#ifdef MODBUS_UART
+#include "my_uart.h"
+#endif
+#ifdef MODBUS_RS485
+#include "rs485.h"
+#endif
 
 // #define MODBUS_INSTANCE                 USART1
 // #define MODBUS_HANDLE                   &huart1
@@ -63,17 +67,21 @@ typedef struct {
   uint16_t txIndex;
 } Modbus_Record_t;
 
-// typedef struct {
-//   My_UART_t uart;
-//   Modbus_State_e state;
-//   Modbus_Record_t record;
-// } Modbus_t;
+#ifdef MODBUS_UART
+typedef struct {
+  My_UART_t uart;
+  Modbus_State_e state;
+  Modbus_Record_t record;
+} Modbus_t;
+#endif
 
+#ifdef MODBUS_RS485
 typedef struct {
   RS485_t rs485;
   Modbus_State_e state;
   Modbus_Record_t record;
 } Modbus_t;
+#endif
 
 void Modbus_Init(void);
 void Modbus_Task(void);
