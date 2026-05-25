@@ -31,11 +31,11 @@
 #define DS18B20_CONFIG_TL             20         // 温度下阈值
 #define DS18B20_CONFIG_12Bit          0x7F       // 12bit分辨率，最小读取间隔750ms
 #define DS18B20_CONFIG_10Bit          0x3F       // 10bit分辨率，最小读取间隔200ms
-#define DS18B20_READ_INTERVAL_MS      2000      // 读取间隔2000ms
+#define DS18B20_READ_INTERVAL_MS      2000       // 读取间隔2000ms
 
 typedef struct {
   int8_t tempInt;         // 温度整数部分：-55°C to +125°C
-  uint8_t tempDec;        // 温度小数部分：两位小数0 - 75
+  int8_t tempDec;         // 温度小数部分：两位小数
   uint32_t timer;
 } DS18B20_t;
 

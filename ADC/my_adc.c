@@ -142,15 +142,3 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     ADC_SetReadFlag();
   }
 }
-
-// 4位整数转成字符串显示(X.XXX)
-void ADC_IntToString_1(int32_t val, char *str, uint8_t strlen)
-{
-  snprintf(str, strlen, "%ld.%03ld",val / 1000, val %1000);
-}
-
-// 4位整数转成字符串显示(XX.XX)
-void ADC_IntToString_2(int32_t val, char *str, uint8_t strlen)
-{
-  snprintf(str, strlen, "%ld.%02ld",val / 100, val %100);
-}

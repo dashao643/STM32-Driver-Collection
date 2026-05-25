@@ -38,7 +38,4 @@ void ADC_SetReadFlag(void);
 int32_t ADC_GetValue(ADC_ChannelIndex_e ch);
 void Infrared_Sensor_SetFlag(void);
 
-void ADC_IntToString_1(int32_t val, char *str, uint8_t strlen);
-void ADC_IntToString_2(int32_t val, char *str, uint8_t strlen);
-
 #endif

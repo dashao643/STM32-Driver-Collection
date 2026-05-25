@@ -1,13 +1,15 @@
 #include "general.h"
 #include "usart.h"
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /**
  * @brief 微秒级延时，最长900us
  * 
  * @param us 微秒
  */
-void Delay_us(__IO uint32_t delay)
+void Delay_Us(__IO uint32_t delay)
 {
   int last, cur, val;
   int temp;
@@ -113,7 +115,7 @@ const uint16_t CRC16_TABLE[256] = {
     0X8201, 0X42C0, 0X4380, 0X8341, 0X4100, 0X81C1, 0X8081, 0X4040
 };
 
-uint16_t CRC16_Modbus(uint8_t *buf, uint16_t len)
+uint16_t CRC16_Modbus(const uint8_t *buf, uint16_t len)
 {
   uint16_t crc = 0xFFFF;
   while(len--){
@@ -123,8 +125,38 @@ uint16_t CRC16_Modbus(uint8_t *buf, uint16_t len)
   return crc;
 }
 
+uint8_t CRC8_Maxim(const uint8_t *data, uint16_t len)
+{
+  uint8_t crc = 0x00;
+  
+  while (len--){
+    crc ^= *data++;
+    for (uint8_t i = 0; i < 8; i++){
+      if (crc & 0x01)
+        crc = (crc >> 1) ^ 0x8C;  // 多项式 0x8C (0x31反转后)
+      else
+        crc >>= 1;
+    }
+  }
+  return crc;
+}
+
 void NVIC_SetVectorTable(uint32_t offset)
 {
   SCB->VTOR = offset;
   __enable_irq();
+}
+
+// 4位整数转成字符串显示(X.XXX)
+void IntToString_1(int32_t val, char *str, uint8_t strlen)
+{
+  snprintf(str, strlen, "%ld.%03ld",val / 1000, val %1000);
+}
+
+// 4位整数转成字符串显示(XX.XX)
+void IntToString_2(int32_t val, char *str, uint8_t strlen)
+{
+  int32_t integer = val / 100;
+  uint32_t decimal = abs(val) % 100;
+  snprintf(str, strlen, "%ld.%02ld", integer, decimal);
 }
