@@ -41,7 +41,7 @@ void DS1302_WriteReg(uint8_t addr, uint8_t data);
 void DS1302_WriteRegs(const uint8_t *data, uint8_t size);
 
 void DS1302_Init(void);
-void DS1302_GetRtc(RTC_t *rtc);
-void DS1302_RtcShow(void);
+void DS1302_GetRTC(RTC_t *rtc);
+void DS1302_RTC_Show(void);
 
 #endif

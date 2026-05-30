@@ -209,6 +209,12 @@ void DS1302_Init(void)
   CE_Set(PIN_LOW);
   CLK_Set(PIN_LOW);
   DAT_SetPin(PIN_LOW);
+  // 开启振荡器
+  uint8_t sec = 0;
+  DS1302_ReadReg(DS1302_SECOND, &sec);
+  if (sec & 0x80) {
+    DS1302_WriteReg(DS1302_SECOND, sec & 0x7F);
+  }
 }
 
 /**
@@ -216,7 +222,7 @@ void DS1302_Init(void)
  * 
  * @param rtc RTC_t结构体
  */
-void DS1302_GetRtc(RTC_t *rtc)
+void DS1302_GetRTC(RTC_t *rtc)
 {
   uint8_t rtcArr[7] = {0};
 
@@ -235,13 +241,13 @@ void DS1302_GetRtc(RTC_t *rtc)
   rtc->year = rtcArr[6];
 }
 
-void DS1302_RtcShow(void)
+void DS1302_RTC_Show(void)
 {
   RTC_t rtc;
   char dateBuf[17] = {0};
   char timeBuf[17] = {0};
 
-  DS1302_GetRtc(&rtc);
+  DS1302_GetRTC(&rtc);
   
   snprintf(dateBuf, sizeof(dateBuf), "%04d-%02d-%02d:%d", 2000 + rtc.year, rtc.month, rtc.date, rtc.week);
   snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d", rtc.hours, rtc.minutes, rtc.seconds);
