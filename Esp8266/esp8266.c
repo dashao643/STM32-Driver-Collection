@@ -25,6 +25,16 @@ const char SERVER_PORT[] = {"6789"};
 const uint8_t FRAME_HEAD[] = {0x0D, 0x0A, 0x2B, 0x49, 0x50, 0x44, 0x2C};
 #define FRAME_HEAD_LEN  (sizeof(FRAME_HEAD))               // 长度 = 7
 
+static bool transmitReceive(const char *tx, const char *rx, uint16_t timeout);
+static bool connectWiFi(void);
+static void clockSync(void);
+static void frameReply(uint8_t id, const char* data);
+static bool frameHeaderCheck(void);
+static void frameExecute(void);
+static void frameProcess(void);
+static bool AT_STA_Config(void);
+static bool AT_AP_Config(void);
+static bool connectToServer(void);
 
 static bool transmitReceive(const char *tx, const char *rx, uint16_t timeout)
 {
@@ -36,7 +46,7 @@ static bool transmitReceive(const char *tx, const char *rx, uint16_t timeout)
     if(state == HAL_OK) 
       return true;
     else if(state == HAL_BUSY){
-      if(ESP8266_AT_Receive(rx, 1000) == HAL_OK)
+      if(ESP8266_AT_Receive(rx, 3000) == HAL_OK)
         return true;
     }
     else if(state == HAL_ERROR)
@@ -45,93 +55,53 @@ static bool transmitReceive(const char *tx, const char *rx, uint16_t timeout)
   return false;
 }
 
-static bool AT_STA_Config(void)
+static bool connectWiFi(void)
 {
-  // 测试AT
-  if(!transmitReceive("AT\r\n", "OK", 50)) return false;
-
-  // if(!transmitReceive("AT+RST\r\n", "OK", 50)) return false;
-
-  // 设置为STA模式
-  if(!transmitReceive("AT+CWMODE=1\r\n", "OK", 50)) return false;
-
-  // 开启多连接
-  if(!transmitReceive("AT+CIPMUX=1\r\n", NULL, 10)) return false;
-  // HAL_Delay(500);
-  
-  // 查询网络连接状态, 
-  if(!transmitReceive("AT+CIPSTATUS\r\n", "OK", 50)) return false;
-  // 若为未连接，连接WiFi
-  if(!strstr((char*)esp8266.uart.rxBuf, "STATUS:2")) {
-    // 从EE读出用户名和密码
-    uint8_t ssidByte = 0, pwdByte = 0;
-    AT24C64_Read_Page(WIFI_SSID_PAGE, &ssidByte, 1);
-    AT24C64_Read_Page(WIFI_PASSWORD_PAGE, &pwdByte, 1);
-    if(ssidByte == AT24C64_BLANK_BYTE || pwdByte == AT24C64_BLANK_BYTE){
-      printf("WiFi not configured\n");
-      return false;
-    }
-    char ssid[33] = {0};
-    char pwd[33] = {0}; 
-    AT24C64_App_ReadWiFiSSID(ssid, 33);
-    AT24C64_App_ReadWiFiPassword(pwd, 33);
-    char connectWiFi[100] = {0};
-    sprintf(connectWiFi, "AT+CWJAP=%s,%s\r\n", ssid, pwd);
-    if(!transmitReceive(connectWiFi, NULL, 1000)){
-      printf("WiFi connected fail\n");
-      return false;
-    }
+  // 从EE读出用户名和密码
+  uint8_t ssidByte = 0, pwdByte = 0;
+  AT24C64_Read_Page(WIFI_SSID_PAGE, &ssidByte, 1);
+  AT24C64_Read_Page(WIFI_PASSWORD_PAGE, &pwdByte, 1);
+  if(ssidByte == AT24C64_BLANK_BYTE || pwdByte == AT24C64_BLANK_BYTE){
+    printf("WiFi not configured\n");
+    return false;
   }
-  // 查询本机IP地址
-  transmitReceive("AT+CIPSTA?\r\n", NULL, 10);
 
-  // 开启本地TCP服务器
-  // if(!transmitReceive("AT+CIPSERVER=1,80\r\n", "OK", 10)) return false;
-  // HAL_Delay(500);
+  char ssidRow[33] = {0};
+  char pwdRow[33] = {0}; 
+  AT24C64_App_ReadWiFiSSID(ssidRow, 33);
+  AT24C64_App_ReadWiFiPassword(pwdRow, 33);
+  // 补充引号
+  char ssid[35] = {0};
+  char pwd[35] = {0}; 
+  sprintf(ssid, "\"%s\"", ssidRow);
+  sprintf(pwd, "\"%s\"", pwdRow);
+  char connectWiFi[100] = {0};
+  sprintf(connectWiFi, "AT+CWJAP=%s,%s\r\n", ssid, pwd);
 
-  // 与云端服务器建立TCP连接
-  char tcpConnect[50] = {0};
-  sprintf(tcpConnect, "AT+CIPSTART=0,\"TCP\",%s,%s\r\n", SERVER_IP, SERVER_PORT);
-
-  if(!transmitReceive(tcpConnect, "OK", 2000)) return false;
-
+  if(!transmitReceive(connectWiFi, "WIFI CONNECTED", 5000)){
+    printf("WiFi connected fail\n");
+    return false;
+  }
   return true;
 }
 
-static bool AT_AP_Config(void)
+static void clockSync(void)
 {
-  // 设置为AP模式
-  if(!transmitReceive("AT+CWMODE=2\r\n", "OK", 50)) return false;
-  // 配置WiFi
-  if(!transmitReceive("AT+CWSAP=\"dashao\",\"12345678\",6,4\r\n", "OK", 50)) return false;
-  // 设置多连接
-  if(!transmitReceive("AT+CIPMUX=1\r\n", "OK", 50)) return false;
-  // 开启服务 IP：192.168.4.1 Port:80
-  if(!transmitReceive("AT+CIPSERVER=1,80\r\n", "OK", 50)) return false;  
-  
-  return true;
+
 }
 
-static void frameReply(char id, const char* data)
+static void frameReply(uint8_t id, const char* data)
 {
-  // char tx_buf[30] = {0};
-  // uint8_t len = strlen(data);
-  // uint8_t strBack[10] = {0};
+  uint8_t len = strlen(data);
+  if(len > 30) return;
 
-  // if(len > 10)
-  //   return;
+  char txBuf[50] = {0};
+	sprintf(txBuf,"AT+CIPSEND=%u,%u\r\n", id, len);
 
-	// sprintf(tx_buf,"AT+CIPSEND=%u,%u\r\n", txID, len);    // 转成字符
-  // HAL_UART_Transmit(ESP8266_HANDLE, (uint8_t*)tx_buf, strlen(tx_buf), ESP8266_UARTX_TIMEOUT);
-  // 等待返回 '>' 
-  // HAL_Delay(1);
-  // HAL_UART_Receive(ESP8266_HANDLE,strBack,sizeof(strBack),20);
-  // cleanString(strBack);
-  // if(strstr((char*)strBack, "OK") || strstr((char*)strBack, ">")){
-    // LED_GREEN_TOGGLE();
-    // HAL_UART_Transmit(ESP8266_HANDLE, (uint8_t*)data, strlen(data), ESP8266_UARTX_TIMEOUT);
-  // }
-  // LED_RED_TOGGLE();
+  ESP8266_AT_Transmit(txBuf);
+  HAL_Delay(1);
+
+  ESP8266_AT_Transmit(data);
 }
 
 static bool frameHeaderCheck(void)
@@ -152,7 +122,7 @@ static bool frameHeaderCheck(void)
 static void frameExecute(void)
 {
   // 提取客户端id用于回复
-  char id = esp8266.uart.rxBuf[7];
+  uint32_t id = esp8266.uart.rxBuf[7] - '0';
 
   // 找冒号,冒号后是数据
   char *colon = strchr((char*)esp8266.uart.rxBuf, ':');
@@ -164,11 +134,21 @@ static void frameExecute(void)
   // 总长度减去固定帧头长度
   uint16_t size = esp8266.uart.rxIdx - 11;
 
-  if(ESP8266_APP_LocalCmd(data, size)){
-    frameReply(id, "ok");
+  uint8_t state = ESP8266_APP_LocalCmd(data, size);
+
+  if(state == CMD_OK){
+    frameReply(id, "cmd ok");
   }
-  else{
+  else if(state == CMD_ERROR){
     frameReply(id, "cmd error");
+  }
+  else if(state == WiFi_CONFIG_OK){
+    frameReply(id, "WiFi reconnecting...");
+    transmitReceive("AT+RST", NULL, 1000);
+    ESP8266_Init();
+  }
+  else if(state == DATA_ERROR){
+    frameReply(id, "WiFi data error");
   }
 }
 
@@ -181,6 +161,71 @@ static void frameProcess(void)
   frameExecute();
 }
 
+static bool AT_STA_Config(void)
+{
+  // 测试AT
+  if(!transmitReceive("AT\r\n", "OK", 20)) return false;
+
+  // 设置为STA模式
+  if(!transmitReceive("AT+CWMODE=1\r\n", "OK", 100)) return false;
+
+  // 开启多连接
+  if(!transmitReceive("AT+CIPMUX=1\r\n", NULL, 100)) return false;
+  // HAL_Delay(500);
+  
+  // 查询网络连接状态, 
+  if(!transmitReceive("AT+CIPSTATUS\r\n", "OK", 100)) return false;
+  // 若为未连接，连接WiFi
+  if(!strstr((char*)esp8266.uart.rxBuf, "STATUS:2")) {
+    if(!connectWiFi())
+      return false;
+  }
+  // 查询本机IP地址并打印
+  transmitReceive("AT+CIPSTA?\r\n", "ip", 5000);
+  printf("%s\n", esp8266.uart.rxBuf);
+
+  // 开启本地TCP服务器(未实现)
+  // if(!transmitReceive("AT+CIPSERVER=1,80\r\n", "OK", 10)) return false;
+  // HAL_Delay(500);
+
+  return true;
+}
+
+static bool AT_AP_Config(void)
+{
+  // 设置为AP模式
+  if(!transmitReceive("AT+CWMODE=2\r\n", "OK", 50)) return false;
+  // 配置WiFi
+  if(!transmitReceive("AT+CWSAP=\"dashao\",\"12345678\",6,4\r\n", "OK", 50)) return false;
+  // 设置多连接
+  if(!transmitReceive("AT+CIPMUX=1\r\n", "OK", 50)) return false;
+  // 开启服务 IP：192.168.4.1 Port:80
+  if(!transmitReceive("AT+CIPSERVER=1,80\r\n", "OK", 50)) return false;  
+  
+  return true;
+}
+
+static bool connectToServer(void)
+{
+  // 查询是否连接WiFi
+  transmitReceive("AT+CIPSTATUS\r\n", NULL, 1000);
+  if(strstr((char*)esp8266.uart.rxBuf, "STATUS:5")) return false;
+
+  // 与云端服务器建立TCP连接
+  char tcpConnect[50] = {0};
+  sprintf(tcpConnect, "AT+CIPSTART=0,\"TCP\",%s,%s\r\n", SERVER_IP, SERVER_PORT);
+  transmitReceive(tcpConnect, "OK", 5000);
+
+  // 查询是否连接云端
+  if(!transmitReceive("AT+CIPSTATUS\r\n", "STATUS:3", 1000)){
+    printf("server connect fail\n");
+    return false;
+  }
+  printf("server connect success\n");
+
+  return true;
+}
+
 /*-----------------------------------------------------------------*/
 
 /**
@@ -191,7 +236,7 @@ static void frameProcess(void)
  */
 HAL_StatusTypeDef ESP8266_AT_Transmit(const char *cmd)
 {
-  printf("%s\n",cmd);
+  // printf("%s\n",cmd);
 
   uint16_t len = strlen(cmd);
 
@@ -219,8 +264,7 @@ HAL_StatusTypeDef ESP8266_AT_Receive(const char *res, uint16_t timeout)
       // 缓冲区索引处补充\0结束符
       esp8266.uart.rxBuf[esp8266.uart.rxIdx] = 0;
 
-      // printf("cnt=%d\n", cnt);
-      Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
+      // Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
 
       if(!res) return HAL_OK;
 
@@ -234,6 +278,14 @@ HAL_StatusTypeDef ESP8266_AT_Receive(const char *res, uint16_t timeout)
     cnt++;
   }
   return HAL_TIMEOUT;
+}
+
+bool ESP8266_ConnectToServer(void)
+{
+  bool res = connectToServer();
+  UART_Clear_AT(&esp8266.uart);
+
+  return res;
 }
 
 void ESP8266_Init(void)
@@ -251,18 +303,21 @@ void ESP8266_Init(void)
   /******************* ESP8266 *******************/
   esp8266.isConfig = false;
 
-  // 如果STA模式进入失败，开启AP模式用于局域网通信和配网
+  // 默认STA模式
   if(AT_STA_Config()){
-    LED_GREEN_TOGGLE();
+    printf("STA model\n");
     esp8266.isConfig = true;
-    return;
-  }
-  if(AT_AP_Config()){
-    LED_BLUE_TOGGLE();
+  } 
+  // 失败则配置AP模式用于局域网通信和配网
+  else if(AT_AP_Config()){
+    printf("AP model\n");
     esp8266.isConfig = true;
-    return;
+  } 
+  else {
+    printf("STA/AP Config fail\n");
   }
-  LED_RED_TOGGLE();
+
+  UART_Clear_AT(&esp8266.uart);
 }
 
 void ESP8266_Task(void)
@@ -270,6 +325,8 @@ void ESP8266_Task(void)
   if(!esp8266.isConfig) return;
 
   if(esp8266.uart.frameEnd){
+    Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
+
     frameProcess();
     UART_Clear_AT(&esp8266.uart);
   }

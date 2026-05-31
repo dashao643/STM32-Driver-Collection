@@ -33,6 +33,8 @@ typedef struct {
 HAL_StatusTypeDef ESP8266_AT_Transmit(const char *cmd);
 HAL_StatusTypeDef ESP8266_AT_Receive(const char *res, uint16_t timeout);
 
+bool ESP8266_ConnectToServer(void);
+
 void ESP8266_Init(void);
 void ESP8266_Task(void);
 My_UART_t* ESP8266_Get_UART(void);

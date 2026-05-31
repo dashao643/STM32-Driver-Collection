@@ -15,6 +15,12 @@
 #include "my_rtc.h"
 #endif
 
+#ifdef ESP8266
+#include "esp8266.h"
+#endif
+
+
+
 // 检验寄存器地址
 bool Modbus_App_Check_Address(uint8_t func, uint16_t addr)
 {
@@ -23,17 +29,7 @@ bool Modbus_App_Check_Address(uint8_t func, uint16_t addr)
 
   return true;
 }
-/*
-  if(modbus.record.func == MODBUS_FUNC_WRITE_SINGLE_COIL){
-    if(regCnt.word != 1)
-      return false;
-  }
 
-  else if(modbus.record.func == MODBUS_FUNC_IAP_HANDSHAKE){
-    if(regCnt.word != 1)
-      return false;
-  }
-*/
 // 校验寄存器数量
 bool Modbus_App_Check_RegCount(uint8_t func, uint16_t cnt)
 {
@@ -48,7 +44,7 @@ bool Modbus_App_Check_RegCount(uint8_t func, uint16_t cnt)
 bool Modbus_App_Check_WriteValue(uint8_t func, uint16_t regCnt, uint8_t byte)
 {
   if(func == MODBUS_FUNC_WRITE_SINGLE_COIL){
-    if(byte > 0x02) 
+    if(byte > 0x04) 
       return false;
   }
   if(func == MODBUS_FUNC_WRITE_MULTI_REGS){
@@ -87,6 +83,12 @@ void Modbus_App_Write_Coil(uint16_t addr, uint8_t value)
     else if(value == MODBUS_SET) LED_BLUE_ON();
     else LED_BLUE_TOGGLE();
   }
+#endif
+#ifdef ESP8266
+  if(addr == ESP8266_A){
+    if(value == CONNECT_SERVER) ESP8266_ConnectToServer();
+  }
+
 #endif
 }
 

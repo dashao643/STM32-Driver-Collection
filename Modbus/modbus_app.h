@@ -7,12 +7,14 @@
 #define LED
 #define DHT11
 #define MY_RTC
+#define ESP8266
 
 // 线圈地址定义
 #define LED_RED		      0x0001
 #define LED_GREEN 	    0x0002
 #define LED_BLUE 	      0x0003
 #define PWM_LED	        0x0004
+#define ESP8266_A       0x0005
 
 // 输入寄存器地址定义
 #define DHT11_TEMP	    0x0001
@@ -27,9 +29,11 @@
 #define RTC_TIME_SECOND    0x0006
 
 // 支持的操作数
-#define MODBUS_RESET 	  0x00    // 关闭
-#define MODBUS_SET 	    0x01    // 开启
-#define MODBUS_TOGGLE 	0x02    // 翻转
+#define MODBUS_RESET 	     0x00    // 关闭
+#define MODBUS_SET 	       0x01    // 开启
+#define MODBUS_TOGGLE 	   0x02    // 翻转
+#define CONNECT_SERVER     0x03
+#define DISCONNECT_SERVER  0x04
 
 #define REG_ADDR_MAX	  0x0006  // 最大寄存器地址
 #define REG_CNT_MAX     6       // 寄存器地址数量
