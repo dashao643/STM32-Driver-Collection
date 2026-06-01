@@ -59,6 +59,7 @@ static void writeBit(uint8_t bit, bool isRead)
   if(bit != 0 && bit != 1) return;
 
   DAT_SetPin((GPIO_PinState)bit);
+  Delay_Us(1);           // tDC: 数据建立时间，CLK上升沿前需稳定
   CLK_Set(PIN_HIGH);
   Delay_Us(1);
   if(!isRead){
@@ -81,8 +82,8 @@ static void writeByte(uint8_t byte, bool isRead)
 static uint8_t readBit(void)
 {
   CLK_Set(PIN_LOW);
+  Delay_Us(1);           // tCDZ: 等DS1302把数据放稳，最多280ns
   uint8_t bit = HAL_GPIO_ReadPin(DS1302_DAT_GPIO_Port, DS1302_DAT_Pin);
-  Delay_Us(1);
   CLK_Set(PIN_HIGH);
   Delay_Us(1);
 

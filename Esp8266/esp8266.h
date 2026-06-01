@@ -17,17 +17,16 @@
 #define ESP8266_TX_MAXLENTH              50
 #define ESP8266_RX_MAXLENTH              256
 #define ESP8266_RX_MINLENTH              12       // 最小帧长度
-// #define ESP8266_TX_BUFF_MAXLENTH         30       // 回复帧最大帧长
 
-#define ESP8266_RETRY_COUNT              3           // 重试次数   
-// #define INITIAL_DELAY_MS                 500      // 上电延时发送
-// #define WAIT_RST_DELAY                   800      // 发完RST间隔时间
-// #define WAIT_AT_REPLY_MS                 500      // 重试间隔
-// #define RETRY_COUNT                      5        // 重试次数
+#define ESP8266_RETRY_COUNT              3        // 重试次数   
+
+#define ESP8266_CLOCK_SYN_MS             5000     // 等待8266时钟校准
 
 typedef struct {
   My_UART_t uart;
-  bool isConfig;
+  bool isConfig;          // AP或STA模式是否成功配置
+  bool doClockSyn;        // 是否需要时钟校准
+  uint32_t clockTimer;
 }ESP8266_t;
 
 HAL_StatusTypeDef ESP8266_AT_Transmit(const char *cmd);

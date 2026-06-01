@@ -1,8 +1,17 @@
 #include "general.h"
 #include "usart.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+const char monthTable3c[12][4] = {
+	{"Jan"},{"Feb"},{"Mar"},
+	{"Apr"},{"May"},{"Jun"},
+  {"Jul"},{"Aug"},{"Sep"},
+	{"Oct"},{"Nov"},{"Dec"},
+};
 
 /**
  * @brief 微秒级延时，最长900us
@@ -159,4 +168,22 @@ void IntToString_2(int32_t val, char *str, uint8_t strlen)
   int32_t integer = val / 100;
   uint32_t decimal = abs(val) % 100;
   snprintf(str, strlen, "%ld.%02ld", integer, decimal);
+}
+
+/**
+ * @brief 月份字符串转整数，对比前三个字符，失败返回-1
+ * 
+ * @param monthStr 月份字符串
+ * @param size 字符串大小，至少为3
+ * @return int8_t int8_t 月份整数
+ */
+int8_t monthMatch3c(const char *monthStr, uint8_t size)
+{
+  if(size < 3) return -2;
+
+	for (uint8_t i = 0; i < 12; i++) {
+		if (strncmp(monthTable3c[i], monthStr, 3) == 0)
+			return i + 1;
+	}
+	return -1;
 }

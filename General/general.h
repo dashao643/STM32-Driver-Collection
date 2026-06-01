@@ -2,6 +2,7 @@
 #define __GENERAL_H
 
 #include "main.h"
+#include <stdint.h>
 
 #define PIN_HIGH                GPIO_PIN_SET
 #define PIN_LOW                 GPIO_PIN_RESET
@@ -27,5 +28,6 @@ uint8_t CRC8_Maxim(const uint8_t *data, uint16_t len);
 void NVIC_SetVectorTable(uint32_t offset);
 void IntToString_1(int32_t val, char *str, uint8_t strlen);
 void IntToString_2(int32_t val, char *str, uint8_t strlen);
+int8_t monthMatch3c(const char *monthStr, uint8_t size);
 
 #endif

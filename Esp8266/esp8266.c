@@ -4,11 +4,14 @@
 #include "esp8266_app.h"
 #include "at24c64_app.h"
 #include "at24c64.h"
+#include "my_rtc.h"
+#include "general.h"
 #include "modbus.h"
 
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "led.h"
 
@@ -19,15 +22,18 @@ static ESP8266_t esp8266 = {0};
 /************************ 云端服务器 *************************/
 const char SERVER_IP[] = {"\"192.168.31.155\""};
 const char SERVER_PORT[] = {"6789"};
+
 /********************** 接收数据固定帧头 **********************/
 // 0D   0A  2B 49 50 44 2C  30  2C   33     3A
 // 回车 换行 +  I  P  D  ,   id  ,  字节数    :
+
 const uint8_t FRAME_HEAD[] = {0x0D, 0x0A, 0x2B, 0x49, 0x50, 0x44, 0x2C};
 #define FRAME_HEAD_LEN  (sizeof(FRAME_HEAD))               // 长度 = 7
 
 static bool transmitReceive(const char *tx, const char *rx, uint16_t timeout);
 static bool connectWiFi(void);
 static void clockSync(void);
+static bool clockFrameParse(void);
 static void frameReply(uint8_t id, const char* data);
 static bool frameHeaderCheck(void);
 static void frameExecute(void);
@@ -87,7 +93,47 @@ static bool connectWiFi(void)
 
 static void clockSync(void)
 {
+  transmitReceive("AT+CIPSNTPCFG=1,8\r\n", "OK", 500);
 
+  esp8266.doClockSyn = true;
+  esp8266.clockTimer = HAL_GetTick();
+}
+
+/*
+时间格式：4D 6F 6E 20 4A 75 6E 20 30 31 20 31 35 3A 30 33 3A 34 32 20 32 30 32 36 0D 0A 4F 4B 0D 0A
+            周    空     月    空  日   空  时    ：  分   ：  秒   空     年       /r /n   ok   /r/n
+          "AT+CIPSNTPTIME? +CIPSNTPTIME:Thu Jan 01 00:00:00 1970 OK"
+*/
+static bool clockFrameParse(void)
+{
+  transmitReceive("AT+CIPSNTPTIME?\r\n", "OK", 500);
+
+	char monthStr[4] = { 0 };
+	int day, hour, minute, second, year;
+
+	uint8_t ret = sscanf((char*)esp8266.uart.rxBuf, "%*[^:]:%*s %3s %d %d:%d:%d %d", 
+                   monthStr, &day, &hour, &minute, &second, &year);
+	if (ret != 6) return false;
+
+  int8_t month = monthMatch3c(monthStr, 3);
+  if(month <= 0) return false;
+
+  // printf("month=%d, day=%d, hour=%d, minute=%d, second=%d, year=%d\n", month, day, hour, minute, second, year);
+
+  RTC_TimeTypeDef time = {0};
+  RTC_DateTypeDef date = {0};
+  date.Year = year % 2000;
+  date.Month = month;
+  date.Date = day;
+  time.Hours = hour;
+  time.Minutes = minute;
+  time.Seconds = second;
+
+  RTC_TimeDateAdjust(&time, &date);
+
+  UART_Clear_AT(&esp8266.uart);
+
+  return true;
 }
 
 static void frameReply(uint8_t id, const char* data)
@@ -175,14 +221,19 @@ static bool AT_STA_Config(void)
   
   // 查询网络连接状态, 
   if(!transmitReceive("AT+CIPSTATUS\r\n", "OK", 100)) return false;
+
   // 若为未连接，连接WiFi
   if(!strstr((char*)esp8266.uart.rxBuf, "STATUS:2")) {
     if(!connectWiFi())
       return false;
   }
+
   // 查询本机IP地址并打印
   transmitReceive("AT+CIPSTA?\r\n", "ip", 5000);
   printf("%s\n", esp8266.uart.rxBuf);
+
+  // 联网时钟校准
+  clockSync();
 
   // 开启本地TCP服务器(未实现)
   // if(!transmitReceive("AT+CIPSERVER=1,80\r\n", "OK", 10)) return false;
@@ -264,7 +315,7 @@ HAL_StatusTypeDef ESP8266_AT_Receive(const char *res, uint16_t timeout)
       // 缓冲区索引处补充\0结束符
       esp8266.uart.rxBuf[esp8266.uart.rxIdx] = 0;
 
-      // Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
+      Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
 
       if(!res) return HAL_OK;
 
@@ -302,6 +353,7 @@ void ESP8266_Init(void)
 
   /******************* ESP8266 *******************/
   esp8266.isConfig = false;
+  esp8266.doClockSyn = false;
 
   // 默认STA模式
   if(AT_STA_Config()){
@@ -324,9 +376,16 @@ void ESP8266_Task(void)
 {
   if(!esp8266.isConfig) return;
 
+  if(esp8266.doClockSyn){
+    if((HAL_GetTick() - esp8266.clockTimer) > ESP8266_CLOCK_SYN_MS){
+      clockFrameParse();
+      esp8266.doClockSyn = false;
+    }
+  }
+
   if(esp8266.uart.frameEnd){
     Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
-
+    
     frameProcess();
     UART_Clear_AT(&esp8266.uart);
   }
