@@ -16,24 +16,26 @@
 13. nrf24l01无线模块（单向遥控）
 14. CAN通信
 15. DS1302时钟
-16. esp8266 STA模式上云（开发中）
+16. iwdg、wwdg(开发中)
+17. esp8266 STA模式上云（开发中）
 
 ## 未来：
-1. MQTT、HTTP
+1. MQTT
 2. 红外通信、RFID
-3. 以太网通信协议应用
+3. W5500
 4. LCD屏幕驱动（8080协议）
-5. 蓝牙、4G、2.4G、LoRa、NB、Zigbee
-6. OTA升级
+5. 蓝牙、4G、LoRa、NB、Zigbee
+6. Ymodem协议OTA升级
 7. SD卡、IC卡
 8. 超声波
 9. DAC播放音频
 10. PID电机控制
 11. PCF8574 、MPU6050
-12. 低功耗、看门狗
+12. 低功耗
 13. IIS协议、USB协议
 14. 摄像头模块
 15. FSMC协议
 16. RTOS操作系统
 17. FatFS文件管理
 18. LVGL屏幕库
+19. TFT彩屏
