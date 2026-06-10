@@ -185,7 +185,7 @@ void PWM_Motor_SpeedAdd(void)
 {
   if(motor.speed < 100){
     motor.speed += MOTOR_SPEED_STEP;
-    __HAL_TIM_SetCompare(PWM_MOTOR_HANDLE, PWM_MOTOR_CHANNEL,motor.speed);
+    __HAL_TIM_SetCompare(PWM_MOTOR_HANDLE, PWM_MOTOR_CHANNEL, motor.speed);
   }
   // LED_RED_TOGGLE();
 #ifdef OLED
