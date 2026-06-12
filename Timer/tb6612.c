@@ -1,8 +1,5 @@
 #include "stm32f1xx_hal.h"
-#include "stm32f1xx_hal_gpio.h"
 #include "tb6612.h"
-#include "general.h"
-#include "stm32f1xx_hal_tim.h"
 #include <stdint.h>
 
 // PSC:719 ARR:99 CCR:0-100

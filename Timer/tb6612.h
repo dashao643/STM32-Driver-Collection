@@ -6,8 +6,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// PWM输出0：CCR >= (ARR + 1)
-
+/*
+PWM输出0：       CCR >= (ARR + 1)
+Mode:           PWM mode 1
+Pulse:          CCR
+preload         Enable
+Fast Mode       Disable
+CH Polarity     High
+*/
 #define TB6612_PWM_HANDLE       &htim2
 #define TB6612_PWM_CHANNEL      TIM_CHANNEL_4
 
