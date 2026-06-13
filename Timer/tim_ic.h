@@ -4,31 +4,28 @@
 #include "tim.h"
 #include <stdint.h>
 
-// 输入捕获测PWM频率
-// NVIC开启捕获比较中断
-// ARR设置为最大65535
-// 测量周期内CNT溢出情况未考虑
-
-#define TIM_CLOCK_FREQUENCY   72000000U
-#define TIM_IC_PSC            719
+// 单通道输入捕获测频率
+// #define TIM_IC_ENABLE
 
 #define TIM_IC_INSTANCE       TIM1
 #define TIM_IC_HANDLE         &htim1
 #define TIM_IC_CHANNEL        TIM_CHANNEL_4
 
+#define TIM_IC_PSC            719
+
 typedef enum {
-  LAST_TIME = 0,
-  THIS_TIME
-} TIM_IC_Time_e;            // 1/2：记录赋值给上次cnt还是此次cnt
+  LAST_TIME = 0,             // 等待第一个上升沿
+  THIS_TIME                  // 已捕获第一个上升沿，等待第二个
+} TIM_IC_Time_e;
 
 typedef struct {
-  uint16_t lastCnt;
-  uint16_t thisCnt;
-  uint16_t difCnt;
-  TIM_IC_Time_e time;          
+  uint16_t difCnt;           // 两次捕获间定时器tick数
+  TIM_IC_Time_e time;        // 当前测量状态
+  uint16_t overflowTimes;    // 溢出次数
 } TIM_IC_t;
 
 void TIM_IC_Init(void);
 uint32_t TIM_IC_GetFrequency(void);
+void TIM_IC_CntOverflow(void);
 
 #endif
