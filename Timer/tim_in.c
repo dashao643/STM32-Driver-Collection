@@ -1,8 +1,6 @@
 #include "tim_in.h"
 
 #include <stdint.h>
-#include "led.h"
-#include "stm32f1xx_hal_tim.h"
 
 /*
 定时器从模式：
@@ -23,16 +21,13 @@ static TIM_IN_t timIn = {0};
 void TIM_IN_Init(void)
 {
   HAL_TIM_Base_Start_IT(TIM_IN_HANDLE);
-  // 不需要？
-  HAL_TIM_IC_Start_IT(TIM_IN_HANDLE, TIM_IN_CHANNEL);
-  // 不需要？
 
   timIn.pulseInCycle = 0;
   timIn.pulseOverflow = 0;
 }
 
 // 更新事件处理函数(CNT达到ARR,产生溢出)
-void TIM_IN_CntOverflow(void)
+void TIM_IN_UEV(void)
 {
   timIn.pulseOverflow += __HAL_TIM_GET_AUTORELOAD(TIM_IN_HANDLE);
 }
@@ -41,17 +36,9 @@ void TIM_IN_CntOverflow(void)
 uint32_t TIM_IN_GetPulseCnt(void)
 {
   __disable_irq();
-  timIn.pulseInCycle = __HAL_TIM_GET_COUNTER(TIM_IN_HANDLE);
+  uint32_t cnt = __HAL_TIM_GET_COUNTER(TIM_IN_HANDLE) + timIn.pulseOverflow;
   __enable_irq();
 
-  return timIn.pulseInCycle + timIn.pulseOverflow;
+  return cnt;
 }
 
-// 试一下输入捕获用不用开中断
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-  if(htim->Instance == TIM_IC_INSTANCE){
-    // TIM_IC_CntOverflow();
-    LED_BLUE_TOGGLE();
-  }
-}

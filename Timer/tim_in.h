@@ -7,8 +7,9 @@
 // 触发源选择TI1FP1 / TI2FP2
 // PSC设置为0：1分频，一个脉冲CNT加1
 // ARR设置为最大：减少溢出次数
+// NVIC开启UPDATE中断
 
-#define TIM_IC_INSTANCE               TIM1
+#define TIM_IN_INSTANCE               TIM1
 #define TIM_IN_HANDLE                 &htim1
 #define TIM_IN_CHANNEL                TIM_CHANNEL_1
 
@@ -20,7 +21,7 @@ typedef struct {
 } TIM_IN_t;
 
 void TIM_IN_Init(void);
-void TIM_IN_CntOverflow(void);
+void TIM_IN_UEV(void);
 uint32_t TIM_IN_GetPulseCnt(void);
 
 #endif

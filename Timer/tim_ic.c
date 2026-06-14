@@ -30,7 +30,7 @@ uint32_t TIM_IC_GetFrequency(void)
 }
 
 // HAL_TIM_PeriodElapsedCallback中调用
-void TIM_IC_CntOverflow(void)
+void TIM_IC_UEV(void)
 {
   if (timIc.time == THIS_TIME)
     timIc.overflowTimes++;

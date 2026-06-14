@@ -26,6 +26,6 @@ typedef struct {
 
 void TIM_IC_Init(void);
 uint32_t TIM_IC_GetFrequency(void);
-void TIM_IC_CntOverflow(void);
+void TIM_IC_UEV(void);
 
 #endif
