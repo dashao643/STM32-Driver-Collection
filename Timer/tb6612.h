@@ -14,8 +14,11 @@ preload         Enable
 Fast Mode       Disable
 CH Polarity     High
 */
-#define TB6612_PWM_HANDLE       &htim2
-#define TB6612_PWM_CHANNEL      TIM_CHANNEL_4
+#define TB6612_PWM_HANDLE               &htim2
+#define TB6612_PWM_CHANNEL              TIM_CHANNEL_4
+
+#define TB6612_PWM_CCR_MAX_VALUE        100
+#define TB6612_PWM_CCR_MIN_VALUE        001
 
 typedef enum{
   STOP = 0,
@@ -25,12 +28,12 @@ typedef enum{
 } TB6612_Model_e;
 
 void TB6612_Init(void);
-void TB6612_Forward(void);
-void TB6612_Reverse(void);
+void TB6612_Forward(uint8_t duty);
+void TB6612_Reverse(uint8_t duty);
 void TB6612_Stop(void);
 void TB6612_Brake(void);
 
-uint16_t TB6612_SpeedAdd(void);
-uint16_t TB6612_SpeedSub(void);
+uint16_t TB6612_SpeedAdd(uint8_t step);
+uint16_t TB6612_SpeedSub(uint8_t step);
 
 #endif
