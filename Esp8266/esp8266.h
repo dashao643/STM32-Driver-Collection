@@ -14,7 +14,7 @@
 #define ESP8266_INSTANCE                 USART2
 #define ESP8266_HANDLE                   &huart2
 #define ESP8266_TX_TIMEOUT_MS            50
-#define ESP8266_TX_MAXLENTH              50
+#define ESP8266_TX_MAXLENTH              256
 #define ESP8266_RX_MAXLENTH              256
 #define ESP8266_RX_MINLENTH              12       // 最小帧长度
 

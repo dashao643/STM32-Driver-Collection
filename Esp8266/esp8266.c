@@ -6,14 +6,22 @@
 #include "at24c64.h"
 #include "my_rtc.h"
 #include "general.h"
-#include "modbus.h"
 
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#define LED_DEBUG
+// #define MODBUS_DEBUG
+
+#ifdef MODBUS_DEBUG
+#include "modbus.h"
+#endif
+
+#ifdef LED_DEBUG
 #include "led.h"
+#endif
 
 static uint8_t txBuf[ESP8266_TX_MAXLENTH];
 static uint8_t rxBuf[ESP8266_RX_MAXLENTH];
@@ -21,7 +29,9 @@ static ESP8266_t esp8266 = {0};
 
 /************************ 云端服务器 *************************/
 const char SERVER_IP[] = {"\"192.168.31.155\""};
-const char SERVER_PORT[] = {"6789"};
+const char SERVER_PORT[] = {"60001"};
+// const char SERVER_IP[] = {"\"192.168.31.155\""};
+// const char SERVER_PORT[] = {"6789"};
 
 /********************** 接收数据固定帧头 **********************/
 // 0D   0A  2B 49 50 44 2C  30  2C   33     3A
@@ -139,7 +149,7 @@ static bool clockFrameParse(void)
 static void frameReply(uint8_t id, const char* data)
 {
   uint8_t len = strlen(data);
-  if(len > 30) return;
+  if(len > 100) return;
 
   char txBuf[50] = {0};
 	sprintf(txBuf,"AT+CIPSEND=%u,%u\r\n", id, len);
@@ -180,22 +190,35 @@ static void frameExecute(void)
   // 总长度减去固定帧头长度
   uint16_t size = esp8266.uart.rxIdx - 11;
 
-  uint8_t state = ESP8266_APP_LocalCmd(data, size);
-
-  if(state == CMD_OK){
-    frameReply(id, "cmd ok");
-  }
-  else if(state == CMD_ERROR){
-    frameReply(id, "cmd error");
-  }
-  else if(state == WiFi_CONFIG_OK){
-    frameReply(id, "WiFi reconnecting...");
-    transmitReceive("AT+RST", NULL, 1000);
-    ESP8266_Init();
-  }
-  else if(state == DATA_ERROR){
-    frameReply(id, "WiFi data error");
-  }
+  // 校验指令头是否是CMD / WRITE / READ
+  if (strncmp(data, "CMD", 3) == 0) {
+		printf("cmd\n");
+    if(ESP8266_APP_Cmd(data, size))
+      frameReply(id, "CMD OK");
+    else
+      frameReply(id, "CMD ERROR");
+	}
+	else if (strncmp(data, "READ", 4) == 0) {
+		printf("read\n");
+    char resString[64] = {0};
+    if(ESP8266_APP_Read(data, size, resString))
+      frameReply(id, resString);
+    else
+      frameReply(id, "READ ERROR");
+	}
+	else if (strncmp(data, "WRITE", 5) == 0) {
+		printf("write\n");
+    uint8_t state = ESP8266_APP_Write(data, size);
+    if(state == WiFi_CONFIG_OK) {
+      frameReply(id, "WiFi reconnecting...");
+      transmitReceive("AT+RST", NULL, 1000);
+      ESP8266_Init();
+    }
+    else if(state == WRITE_OK) 
+      frameReply(id, "WRITE OK");
+    else 
+      frameReply(id, "WRITE ERROR");
+	}
 }
 
 static void frameProcess(void)
@@ -314,9 +337,9 @@ HAL_StatusTypeDef ESP8266_AT_Receive(const char *res, uint16_t timeout)
 
       // 缓冲区索引处补充\0结束符
       esp8266.uart.rxBuf[esp8266.uart.rxIdx] = 0;
-
+#ifdef MODBUS_DEBUG
       Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
-
+#endif
       if(!res) return HAL_OK;
 
       if(strstr((char*)esp8266.uart.rxBuf, "busy")) return HAL_BUSY;
@@ -384,8 +407,9 @@ void ESP8266_Task(void)
   }
 
   if(esp8266.uart.frameEnd){
+#ifdef MODBUS_DEBUG
     Modbus_Transmit(esp8266.uart.rxBuf, esp8266.uart.rxIdx);
-    
+#endif
     frameProcess();
     UART_Clear_AT(&esp8266.uart);
   }
