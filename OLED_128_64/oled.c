@@ -1,15 +1,9 @@
 #include "oled.h"
 #include "oledfont.h"
 #include "stm32f1xx_hal.h"
-#include "my_i2c.h"
-// #include <stdint.h>
-#include <stdint.h>
+
 #include <string.h>
 #include <stdio.h>
-
-// #include "gpio.h"
-
-
 
 /**
  * @brief 先发送写命令指令，再发送具体命令
@@ -24,7 +18,8 @@ static void OLED_WriteCmd(uint8_t *cmd, uint8_t size)
 #endif
 
 #ifdef I2C_HARDWARE
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, cmd, size, OLED_TIME_OUT); 
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, 
+                    1, cmd, size, OLED_TIME_OUT); 
 #endif
 }
 

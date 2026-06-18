@@ -2,14 +2,17 @@
 #define __OLED_H__
 
 #include "my_i2c.h"
+// #include "i2c.h"
 #include <stdint.h>
 
 // I2C选择
 #define I2C_SOFTWARE          // 软件I2C
 // #define I2C_HARDWARE          // 硬件I2C
 
-// #define OLED_HANDLE           &hi2c1
-// #define OLED_TIME_OUT         1
+#ifdef  I2C_HARDWARE
+#define OLED_HANDLE               &hi2c1
+#define OLED_TIME_OUT             50
+#endif
 
 #define ASCII_OFFSET              0x20
 #define ASCII_LENGTH              95

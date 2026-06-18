@@ -34,7 +34,7 @@ typedef enum {
 } ESP8266_APP_Write_e;
 
 bool ESP8266_APP_Cmd(const char *cmdStr, uint16_t size);
-bool ESP8266_APP_Read(const char *readStr, uint16_t size, char *resStr);
+bool ESP8266_APP_Read(const char *readStr, uint16_t size, char *resStr, uint8_t resSize);
 ESP8266_APP_Write_e ESP8266_APP_Write(const char *writeStr, uint16_t size);
 
 #endif

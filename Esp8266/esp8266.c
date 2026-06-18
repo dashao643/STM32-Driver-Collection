@@ -28,7 +28,8 @@ static uint8_t rxBuf[ESP8266_RX_MAXLENTH];
 static ESP8266_t esp8266 = {0};
 
 /************************ 云端服务器 *************************/
-const char SERVER_IP[] = {"\"192.168.31.155\""};
+// const char SERVER_IP[] = {"\"192.168.31.155\""};
+const char SERVER_IP[] = {"\"39.96.50.211\""};
 const char SERVER_PORT[] = {"60001"};
 // const char SERVER_IP[] = {"\"192.168.31.155\""};
 // const char SERVER_PORT[] = {"6789"};
@@ -190,24 +191,23 @@ static void frameExecute(void)
   // 总长度减去固定帧头长度
   uint16_t size = esp8266.uart.rxIdx - 11;
 
-  // 校验指令头是否是CMD / WRITE / READ
+  // 校验指令头是否是 CMD
   if (strncmp(data, "CMD", 3) == 0) {
-		printf("cmd\n");
     if(ESP8266_APP_Cmd(data, size))
       frameReply(id, "CMD OK");
     else
       frameReply(id, "CMD ERROR");
 	}
+  // 校验指令头是否是 READ
 	else if (strncmp(data, "READ", 4) == 0) {
-		printf("read\n");
-    char resString[64] = {0};
-    if(ESP8266_APP_Read(data, size, resString))
+    char resString[100] = {0};
+    if(ESP8266_APP_Read(data, size, resString, sizeof(resString)))
       frameReply(id, resString);
     else
       frameReply(id, "READ ERROR");
 	}
+  // 校验指令头是否是 WRITE
 	else if (strncmp(data, "WRITE", 5) == 0) {
-		printf("write\n");
     uint8_t state = ESP8266_APP_Write(data, size);
     if(state == WiFi_CONFIG_OK) {
       frameReply(id, "WiFi reconnecting...");
@@ -219,6 +219,10 @@ static void frameExecute(void)
     else 
       frameReply(id, "WRITE ERROR");
 	}
+  // 错误指令
+  else {
+    frameReply(id, "ERROR");
+  }
 }
 
 static void frameProcess(void)

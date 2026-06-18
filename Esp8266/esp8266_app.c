@@ -13,10 +13,10 @@
 #include "ds18b20.h"
 
 /********************* 命令指令 *******************/
-void Fun_LedRedToggle(void) { LED_RED_TOGGLE(); }
-void Fun_LedGreenToggle(void) { LED_GREEN_TOGGLE(); }
-void Fun_LedBlueToggle(void) { LED_BLUE_TOGGLE(); }
-void Fun_LedAllToggle(void) { LED_RED_TOGGLE(); LED_GREEN_TOGGLE(); LED_BLUE_TOGGLE(); }
+static void Fun_LedRedToggle(void) { LED_RED_TOGGLE(); }
+static void Fun_LedGreenToggle(void) { LED_GREEN_TOGGLE(); }
+static void Fun_LedBlueToggle(void) { LED_BLUE_TOGGLE(); }
+static void Fun_LedAllToggle(void) { LED_RED_TOGGLE(); LED_GREEN_TOGGLE(); LED_BLUE_TOGGLE(); }
 
 CmdTable_t cmdTable[] = {
   { "CMD_LED_RED_TOGGLE" ,   Fun_LedRedToggle},
@@ -27,13 +27,8 @@ CmdTable_t cmdTable[] = {
 #define CMD_CNT         (sizeof(cmdTable)/sizeof(CmdTable_t))
 
 /********************* 读指令 *******************/
-void Fun_ReadDHT11(char *resStr) 
+static void Fun_ReadDHT11(char *resStr) 
 { 
-  if(strlen(resStr) < 50) {
-    printf("res read string too short\n");
-    return;
-  }
-
   uint8_t temp = DHT11_GetTemperature();
   uint8_t humi = DHT11_GetHumidity();
 
@@ -41,18 +36,14 @@ void Fun_ReadDHT11(char *resStr)
   sprintf(resStr, "{\"dht11_temp\": %d, \"dht11_humi\": %d}", temp, humi);
 }
 
-void Fun_ReadDS18B20(char *resStr) 
+static void Fun_ReadDS18B20(char *resStr) 
 {
-  if(strlen(resStr) < 50) {
-    printf("res read string too short\n");
-    return;
-  }
   int8_t tempInt;
   uint8_t tempDec;
-  DS18B20_GetTemp(int8_t *tempInt, uint8_t *tempDec)
+  DS18B20_GetTemp(&tempInt, &tempDec);
 
   // 返回json格式
-  sprintf(resStr, "{\"ds18b20_temp\": %d, \"dht11_humi\": %d}", temp, humi);
+  sprintf(resStr, "{\"ds18b20_temp\": %d.%d}", tempInt, tempDec);
 }
 
 ReadTable_t readTable[] = {
@@ -62,13 +53,14 @@ ReadTable_t readTable[] = {
 #define READ_CNT         (sizeof(readTable)/sizeof(ReadTable_t))
 
 /********************* 写指令 *******************/
-bool Fun_WiFiConfig(const char* str) 
+static bool Fun_WiFiConfig(const char* str) 
 { 
 	char ssid[33] = { 0 };
 	char pwd[33] = { 0 };
 
 	// 按照格式提取字符串
-	if (sscanf(str, "WiFi_CONFIG:\"%32[^\"]\",\"%32[^\"]\"", ssid, pwd) != 2) {
+	if (sscanf(str, "WRITE_WiFi_CONFIG:\"%32[^\"]\",\"%32[^\"]\"", ssid, pwd) != 2) {
+    // LED_RED_TOGGLE();
 		return false;
 	}
 
@@ -77,13 +69,16 @@ bool Fun_WiFiConfig(const char* str)
   HAL_Delay(5);
   AT24C64_App_WriteWiFiPassword(pwd, strlen(pwd) + 1);
 
+  // LED_BLUE_TOGGLE();
   return true;
 }
 
 WriteTable_t writeTable[] = {
-	{ "WiFi_CONFIG:", Fun_WiFiConfig}
+	{ "WRITE_WiFi_CONFIG:", Fun_WiFiConfig}
 };
 #define WRITE_CNT         (sizeof(writeTable)/sizeof(WriteTable_t))
+
+/*-----------------------------------------------------------------*/
 
 // 查询控制指令
 bool ESP8266_APP_Cmd(const char *cmdStr, uint16_t size)
@@ -102,11 +97,13 @@ bool ESP8266_APP_Cmd(const char *cmdStr, uint16_t size)
 }
 
 // 查询读取指令，赋值resStr字符串
-bool ESP8266_APP_Read(const char *readStr, uint16_t size, char *resStr)
+bool ESP8266_APP_Read(const char *readStr, uint16_t size, char *resStr, uint8_t resSize)
 {
   UNUSED(size);
   // Modbus_Transmit((uint8_t*)string, size);
   
+  if(resSize < 100) return false;
+
   for(uint8_t i = 0; i < READ_CNT; i++){
     if(strcmp(readStr, readTable[i].readStr) == 0){
       readTable[i].pFunc(resStr);
