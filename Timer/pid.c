@@ -1,22 +1,87 @@
 #include "stm32f1xx_hal.h"
 #include "pid.h"
+#include "tb6612.h"
 
-/*
-u:输出 e:偏差值 Kp:比例系数
-u = Kp * e
-Kp越大，系统响应越快，越快达到目标值
-Kp过大会使系统产生较大的超调和振荡，导致系统的稳定性变差
-仅有比例环节无法消除静态误差
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
 
-p
-int16_t error = target - actual;
-int16_t output = Kp * error;   // Kp 从 0.3 开始试
+#include "led.h"
 
-i
-integral += error;             // 每 10ms 累积一次
-int16_t output = Kp * error + Ki * integral;
+#define PRINTF_DEBUG
 
-d
-derivative = error - last_error;
-int16_t output = Kp * error + Ki * integral + Kd * derivative;
-*/
+static PID_t pid = {0};
+
+/**
+ * @brief PID调控函数，主循环调用
+ * 
+ * @param type 定速控制或定位控制：PID_CONSTANT_SPEED_CONTROL / PID_CONSTANT_POSITION_CONTROL
+ */
+void PID_Task(PID_ControlType_e type)
+{
+  if(HAL_GetTick() - pid.timer < HALL_ENCODER_MEASURE_INTERVAL)
+    return;
+
+  pid.timer = HAL_GetTick();
+ 
+  if(pid.isStart){
+    if(type == PID_CONSTANT_SPEED_CONTROL)
+      pid.actual = abs(HALL_Encoder_GetRPM());
+    else if(type == PID_CONSTANT_POSITION_CONTROL)
+      pid.actual = abs(HALL_Encoder_GetRPM());
+    
+    pid.lastError = pid.thisError;
+    pid.thisError = pid.target - pid.actual;
+
+    pid.errorInter += pid.thisError;
+    float errorDiff = pid.thisError - pid.lastError;
+
+    pid.out = PID_Kp * pid.thisError + PID_Ki * pid.errorInter + PID_Kd * errorDiff;
+
+    TB6612_SetDuty(pid.out);
+
+#ifdef PRINTF_DEBUG
+    printf("actual=%d\n",(int)pid.actual);
+    printf("thisError=%d\n",(int)pid.thisError);
+    printf("lastError=%d\n",(int)pid.lastError);
+    printf("out=%d\n",(int)pid.out);
+#endif
+  }
+}
+
+/**
+ * @brief PID控制电机正转
+ * 
+ * @param target 目标转速或目标角度
+ */
+void PID_Forward(uint16_t target)
+{
+  pid.target = target;
+
+  TB6612_Forward(PID_BASE_DUTY);
+
+  pid.isStart = true;
+}
+
+/**
+ * @brief PID控制电机反转
+ * 
+ * @param target 目标转速或目标角度
+ */
+void PID_Reverse(uint16_t target)
+{
+  pid.target = target;
+
+  TB6612_Reverse(PID_BASE_DUTY);
+
+  pid.isStart = true;
+}
+
+void PID_Stop(void)
+{
+  TB6612_Brake();
+
+  pid.errorInter = 0;
+  pid.thisError = 0;
+  pid.isStart = false;
+}

@@ -18,13 +18,15 @@
 #define HALL_ENCODER_CHANNEL2              TIM_CHANNEL_2
 
 #define HALL_ENCODER_FREQUENCY_DOUBLING    4 		          // 倍频数
-#define HALL_ENCODER_PRECISION             13 	          // 编码器精度：每转一圈输出的脉冲数
+// #define HALL_ENCODER_PRECISION             13 	          // 编码器精度：每转一圈输出的脉冲数
+#define HALL_ENCODER_PRECISION             9              // 实测精度
 #define HALL_ENCODER_REDUCTION_RATIO       30			        // 减速比
 
 #define HALL_ENCODER_MEASURE_INTERVAL      100            // 测量电机转速间隔(单位：毫秒)
 
 typedef struct {
   int16_t rpm;
+  // int32_t totalCnt;
   uint32_t timer;
   uint32_t lastCnt;
 } HALL_ENCODER_t;
@@ -32,5 +34,6 @@ typedef struct {
 void HALL_Encoder_Init(void);
 void HALL_Encoder_Task(void);
 int16_t HALL_Encoder_GetRPM(void);
+int16_t HALL_Encoder_GetAngle(void);
 
 #endif

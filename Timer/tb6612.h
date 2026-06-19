@@ -35,5 +35,6 @@ void TB6612_Brake(void);
 
 uint16_t TB6612_SpeedAdd(uint8_t step);
 uint16_t TB6612_SpeedSub(uint8_t step);
+void TB6612_SetDuty(uint8_t duty);
 
 #endif

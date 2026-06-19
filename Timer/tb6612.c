@@ -76,10 +76,9 @@ void TB6612_Brake(void)
 
 uint16_t TB6612_SpeedAdd(uint8_t step)
 {
-  if(step < TB6612_PWM_CCR_MIN_VALUE) 
-    step = TB6612_PWM_CCR_MIN_VALUE;
-
   uint16_t CCR = __HAL_TIM_GET_COMPARE(TB6612_PWM_HANDLE, TB6612_PWM_CHANNEL);
+
+  if(step == 0) return CCR;
   
   CCR += step;
   if(CCR > TB6612_PWM_CCR_MAX_VALUE)
@@ -92,19 +91,24 @@ uint16_t TB6612_SpeedAdd(uint8_t step)
 
 uint16_t TB6612_SpeedSub(uint8_t step)
 {
-  if(step < TB6612_PWM_CCR_MIN_VALUE) 
-    step = TB6612_PWM_CCR_MIN_VALUE;
-
   uint16_t CCR = __HAL_TIM_GET_COMPARE(TB6612_PWM_HANDLE, TB6612_PWM_CHANNEL);
+
+  if(step == 0) return CCR;
   
-  // printf("step=%d\n",step);
   if(CCR <= step)
     CCR = TB6612_PWM_CCR_MIN_VALUE;
   else
     CCR -= step;
 
-  // printf("sub CCR=%d\n",CCR);
   __HAL_TIM_SET_COMPARE(TB6612_PWM_HANDLE, TB6612_PWM_CHANNEL, CCR);
 
   return CCR;
+}
+
+void TB6612_SetDuty(uint8_t duty)
+{
+  if(duty > TB6612_PWM_CCR_MAX_VALUE)
+    duty = TB6612_PWM_CCR_MAX_VALUE;
+  
+  __HAL_TIM_SET_COMPARE(TB6612_PWM_HANDLE, TB6612_PWM_CHANNEL, duty);
 }
