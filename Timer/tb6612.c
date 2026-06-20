@@ -109,6 +109,7 @@ void TB6612_SetDuty(uint8_t duty)
 {
   if(duty > TB6612_PWM_CCR_MAX_VALUE)
     duty = TB6612_PWM_CCR_MAX_VALUE;
-  
+  // if(duty > TB6612_PWM_CCR_MAX_VALUE) return;
+
   __HAL_TIM_SET_COMPARE(TB6612_PWM_HANDLE, TB6612_PWM_CHANNEL, duty);
 }

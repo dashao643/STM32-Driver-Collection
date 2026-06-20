@@ -27,13 +27,18 @@ void PID_Task(PID_ControlType_e type)
   if(pid.isStart){
     if(type == PID_CONSTANT_SPEED_CONTROL)
       pid.actual = abs(HALL_Encoder_GetRPM());
-    else if(type == PID_CONSTANT_POSITION_CONTROL)
-      pid.actual = abs(HALL_Encoder_GetRPM());
+    // else if(type == PID_CONSTANT_POSITION_CONTROL)
+    //   pid.actual = abs(HALL_Encoder_GetAngle());
     
     pid.lastError = pid.thisError;
     pid.thisError = pid.target - pid.actual;
 
     pid.errorInter += pid.thisError;
+    // 积分限幅
+    if(pid.errorInter > 300) pid.errorInter = 300;
+    if(pid.errorInter < -300) pid.errorInter = -300;
+
+
     float errorDiff = pid.thisError - pid.lastError;
 
     pid.out = PID_Kp * pid.thisError + PID_Ki * pid.errorInter + PID_Kd * errorDiff;
@@ -44,6 +49,7 @@ void PID_Task(PID_ControlType_e type)
     printf("actual=%d\n",(int)pid.actual);
     printf("thisError=%d\n",(int)pid.thisError);
     printf("lastError=%d\n",(int)pid.lastError);
+    printf("errorInter=%d\n",(int)pid.errorInter);
     printf("out=%d\n",(int)pid.out);
 #endif
   }
@@ -58,6 +64,8 @@ void PID_Forward(uint16_t target)
 {
   pid.target = target;
 
+  pid.errorInter = 0;
+  pid.thisError = 0;
   TB6612_Forward(PID_BASE_DUTY);
 
   pid.isStart = true;
@@ -72,6 +80,8 @@ void PID_Reverse(uint16_t target)
 {
   pid.target = target;
 
+  pid.errorInter = 0;
+  pid.thisError = 0;
   TB6612_Reverse(PID_BASE_DUTY);
 
   pid.isStart = true;

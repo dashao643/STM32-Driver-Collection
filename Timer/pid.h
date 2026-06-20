@@ -10,9 +10,12 @@
 // 位置式PID
 // PID调控周期与编码器测速周期保持一致
 
-#define PID_Kp              0.2
+// 定位控制先不用，以后改成根据占空比的正负自动正反转
+
+#define PID_Kp              0.3
 #define PID_Ki              0.2
-#define PID_Kd              0.0
+// #define PID_Ki              0.0
+#define PID_Kd              0.1
 
 #define PID_BASE_DUTY       30
 
@@ -29,7 +32,7 @@ typedef struct {
 
 typedef enum {
   PID_CONSTANT_SPEED_CONTROL = 0,   // 定速度控制
-  PID_CONSTANT_POSITION_CONTROL     // 定位置控制
+  // PID_CONSTANT_POSITION_CONTROL     // 定位置控制
 } PID_ControlType_e;
 
 void PID_Task(PID_ControlType_e type);
