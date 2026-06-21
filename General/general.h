@@ -16,11 +16,15 @@
 
 #define UNUSED_FUNC             __attribute__((unused))
 
-typedef union
-{
+typedef union {
   uint8_t bytes[2];
   uint16_t word;
 } U16Union;
+
+typedef struct {
+  GPIO_TypeDef *port;
+  uint16_t pin;
+} GPIO_PortPin_t;
 
 void Delay_Us(__IO uint32_t delay);
 uint16_t CRC16_Modbus(const uint8_t *buf, uint16_t len);

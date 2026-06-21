@@ -1,6 +1,6 @@
-#include "oled.h"
-#include "oledfont.h"
 #include "stm32f1xx_hal.h"
+#include "oled.h"
+#include "oled_font.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -35,7 +35,8 @@ static void OLED_WriteSingleCmd(uint8_t cmd)
 #endif
 
 #ifdef I2C_HARDWARE
-  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_ADDR, OLED_CMD, 1, &cmd, 1, OLED_TIME_OUT); 
+  HAL_I2C_Mem_Write(&hi2c1, OLED_I2C_SLAVE_ADDR, OLED_I2C_CMD, 
+                    1, &cmd, 1, OLED_TIME_OUT); 
 #endif
 }
 
@@ -52,7 +53,8 @@ static void OLED_WriteData(uint8_t data[], uint16_t length)
 #endif
 
 #ifdef I2C_HARDWARE
-  HAL_I2C_Mem_Write(OLED_HANDLE, OLED_I2C_ADDR, OLED_DATA, 1, data, length, OLED_TIME_OUT); 
+  HAL_I2C_Mem_Write(OLED_HANDLE, OLED_I2C_SLAVE_ADDR, OLED_I2C_DATA, 
+                    1, data, length, OLED_TIME_OUT); 
 #endif
 }
 
@@ -92,15 +94,7 @@ void OLED_Init(void)
   HAL_Delay(100); // 上电延时
 
   OLED_WriteCmd(OLED_CmdInit, sizeof(OLED_CmdInit));
-// #ifdef I2C_SOFTWARE
-//   I2C_Mem_Write(OLED_I2C_ADDR, OLED_CMD, 1, 
-//                 OLED_CmdInit, sizeof(OLED_CmdInit));
-// #endif
 
-// #ifdef I2C_HARDWARE
-//   HAL_I2C_Mem_Write(OLED_HANDLE, OLED_I2C_ADDR, OLED_CMD, 1, 
-//                     OLED_CmdInit, sizeof(OLED_CmdInit), OLED_TIME_OUT); 
-// #endif
   OLED_Clear();
 }
 
@@ -156,10 +150,8 @@ static void OLED_WriteCmdPos(uint8_t x, uint8_t y, uint8_t page_offs)
  */
 void OLED_ShowChar(uint8_t x, uint8_t y, char ch) 
 {
-  if (x == 0 || x > 4)
-    return;
-  if (y == 0 || y > 16)
-    return;
+  if (x == 0 || x > 4) return;
+  if (y == 0 || y > 16) return;
   if ((ch < ASCII_OFFSET) || (ch > ASCII_LENGTH - 1 + ASCII_OFFSET))
     ch = ASCII_OFFSET; // 范围有误，显示为空字符
 
@@ -175,12 +167,9 @@ void OLED_ShowChar(uint8_t x, uint8_t y, char ch)
 // 显示字符串,创建字符串推荐不指定数组长度,或者手动加\0
 void OLED_ShowString(uint8_t x, uint8_t y, const char str[]) 
 {
-  if (str == NULL)
-    return;
-  if (x == 0 || x > 4)
-    return;
-  if (y == 0 || y > 16)
-    return;
+  if (str == NULL) return;
+  if (x == 0 || x > 4) return;
+  if (y == 0 || y > 16) return;
 
   uint8_t i = 0;
   while (str[i] != '\0') {
@@ -194,13 +183,11 @@ void OLED_ShowString(uint8_t x, uint8_t y, const char str[])
 // 需要传入数据的位数，从低位开始显示，目的是更新显示区域 numLen: 1 - 11
 void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen) 
 {
-  if (x == 0 || x > 4)
-    return;
-  if (y == 0 || y > 16)
-    return;
-  if (numLen == 0 || numLen > 11)
-    numLen = 11;
-
+  if (x == 0 || x > 4) return;
+  if (y == 0 || y > 16) return;
+  if (numLen == 0) return;  
+  if (numLen > 11) numLen = 11;
+    
   char buf[12] = {0};  // int32_t 最大值 + 负号 + \0
 
   snprintf(buf, sizeof(buf), "%0*d", numLen, (int)number);
@@ -218,10 +205,10 @@ void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen)
  */
 void OLED_ShowHexNumber(uint8_t x, uint8_t y, const uint8_t data[], uint8_t size)
 {
-  if (x == 0 || x > 4)
-    return;
-  if (y == 0 || y > 16)
-    return;
+  if (x == 0 || x > 4) return;
+  if (y == 0 || y > 16) return;
+  if (size == 0) return;
+  if (size > 5) size = 5;
 
   char buf[3] = {0};
   for(int i = 0; i < size; i++){

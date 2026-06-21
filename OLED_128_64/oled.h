@@ -1,15 +1,15 @@
 #ifndef __OLED_H__
 #define __OLED_H__
 
-#include "my_i2c.h"
 // #include "i2c.h"
+#include "my_i2c.h"
 #include <stdint.h>
 
 // I2C选择
-#define I2C_SOFTWARE          // 软件I2C
-// #define I2C_HARDWARE          // 硬件I2C
+#define I2C_SOFTWARE           // 软件I2C
+// #define I2C_HARDWARE              // 硬件I2C
 
-#ifdef  I2C_HARDWARE
+#ifdef I2C_HARDWARE
 #define OLED_HANDLE               &hi2c1
 #define OLED_TIME_OUT             50
 #endif
@@ -30,6 +30,6 @@ void OLED_SetReverse(void);
 void OLED_ShowChar(uint8_t x, uint8_t y, char ch);
 void OLED_ShowString(uint8_t x, uint8_t y, const char str[]);
 void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen);
-void OLED_ShowHexNumber(uint8_t x, uint8_t y, const uint8_t data[], uint8_t numLen);
+void OLED_ShowHexNumber(uint8_t x, uint8_t y, const uint8_t data[], uint8_t size);
 
 #endif
