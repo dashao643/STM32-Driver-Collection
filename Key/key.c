@@ -1,76 +1,62 @@
+#include "stm32f1xx_hal.h"
 #include "key.h"
 #include "main.h"
-#include "stm32f1xx_hal.h"
+#include "general.h"
 
 #include <stdbool.h>
 
-// 定义按键引脚表，匹配循环中的组数
-static GPIO_TypeDef *keyPorts[KEY_CNT] = {
-  KEY_UP1_GPIO_Port,
-  KEY_UP2_GPIO_Port,
-  KEY_UP3_GPIO_Port
+static GPIO_PortPin_t keyPortPin[KEY_CNT] = {
+  {KEY_1_GPIO_Port, KEY_1_Pin},
+  {KEY_2_GPIO_Port, KEY_2_Pin},
+  {KEY_3_GPIO_Port, KEY_3_Pin},
+  {KEY_4_GPIO_Port, KEY_4_Pin}
 };
-static const uint16_t keyPins[KEY_CNT] = {
-  KEY_UP1_Pin,
-  KEY_UP2_Pin,
-  KEY_UP3_Pin
-};
-
-// static GPIO_TypeDef *key_ports[KEY_CNT] = {
-//   KEY_DOWN1_GPIO_Port,
-//   KEY_DOWN2_GPIO_Port,
-//   KEY_DOWN3_GPIO_Port
-// };
-// static const uint16_t key_pins[KEY_CNT] = {
-//   KEY_DOWN1_Pin,
-//   KEY_DOWN2_Pin,
-//   KEY_DOWN3_Pin
-// };
 
 static Key_t key = {0};
 
-// 初始化静态索引数组
+static uint16_t keyScan(void)
+{
+  uint16_t keyMask = KEY_NONE;
+
+  for (uint8_t i = 0; i < KEY_CNT; i++) {
+    if (HAL_GPIO_ReadPin(keyPortPin[i].port, keyPortPin[i].pin) == KEY_PRESSED) {
+      keyMask |= (1 << i);
+    }
+  }
+
+  return keyMask;
+}
+
 void Key_Init(void)
 {
   key.preKey = KEY_NONE;
   key.curKey = KEY_NONE;
-  key.keyValue = KEY_NONE;
-  key.keyScanMs = HAL_GetTick();
+  key.scanTimer = HAL_GetTick();
 }
 
-static KeyNum_e keyScan(void)
+uint16_t Key_Read(void)
 {
-  KeyNum_e key = KEY_NONE;
+  if (HAL_GetTick() - key.scanTimer < KEY_INTERVAL_MS)
+    return KEY_NONE;
+  
+  key.scanTimer = HAL_GetTick();
 
-  for (uint8_t i = 0; i < KEY_CNT; i++) {
-    if (HAL_GPIO_ReadPin(keyPorts[i], keyPins[i]) == KEY_PRESSED) {
-      key = i + 1;
-      break;
-    }
+  key.preKey = key.curKey;
+  key.curKey = keyScan();
+
+  // 按下触发：上次没按，此次按下
+#ifdef KEY_MODE_TRIGGER
+  if (key.preKey == KEY_NONE && key.curKey != KEY_NONE) {
+    return key.curKey;
   }
-
-  return key;
-}
-
-KeyNum_e Key_Read(void) 
-{
-  key.keyValue = KEY_NONE;
-
-  // 间隔 KEY_INTERVAL_MS 扫描一次
-  if ((HAL_GetTick() - key.keyScanMs) >= KEY_INTERVAL_MS) {
-    key.keyScanMs = HAL_GetTick();
-
-    // 保存上一次状态
-    key.preKey = key.curKey;
-    // 读取当前按下的键
-    key.curKey = keyScan();
-
-    // 上一次有按键按下，当前松开
-    if (key.preKey != KEY_NONE && key.curKey == KEY_NONE) {
-      // 赋值为上次按键的键值（此时 curKey 已为 KEY_NONE ）
-      key.keyValue = key.preKey;
-    }
+  // 松开触发：上次按下，此次没按(返回上次值，此次已清零)
+#elif defined(KEY_MODE_RELEASE)
+  if (key.preKey != KEY_NONE && key.curKey == KEY_NONE) {
+    return key.preKey;
   }
-
-  return key.keyValue;
+  // 按住触发：当前按键值
+#elif defined(KEY_MODE_HOLD)
+  return key.curKey;
+#endif
+  return KEY_NONE;
 }

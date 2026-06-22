@@ -54,12 +54,24 @@ static uint16_t keyScan(void)
   return keyMask;
 }
 
+/*-----------------------------------------------------------------*/
+
+void MatrixKey_Init(void)
+{
+  matrixKey.preKey = KEY_NONE;
+  matrixKey.curKey = KEY_NONE;
+  matrixKey.scanTimer = HAL_GetTick();
+  setAllRowsHigh();
+}
+
 uint16_t MatrixKey_Read(void)
 {
-  uint16_t keyMask = 0;
   if (HAL_GetTick() - matrixKey.scanTimer < KEY_INTERVAL_MS)
-    return keyMask;
+    return 0;
+    
   matrixKey.scanTimer = HAL_GetTick();
+  
+  uint16_t keyMask = 0;
 
   matrixKey.preKey = matrixKey.curKey;
   matrixKey.curKey = keyScan();
@@ -78,12 +90,4 @@ uint16_t MatrixKey_Read(void)
   return matrixKey.curKey;
 #endif
   return keyMask;
-}
-
-void MatrixKey_Init(void)
-{
-  matrixKey.preKey = KEY_NONE;
-  matrixKey.curKey = KEY_NONE;
-  matrixKey.scanTimer = HAL_GetTick();
-  setAllRowsHigh();
 }
