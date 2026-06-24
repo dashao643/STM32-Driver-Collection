@@ -20,7 +20,7 @@
 #endif
 
 #define IAP_TX_TIMEOUT                50
-#define IAP_RX_TIMEOUT                200
+#define IAP_RX_TIMEOUT                1000
 #define IAP_RX_BUFF_MAXLENTH          FLASH_PAGE_SIZE               // 数据包长度：一页大小：1024B
 #define IAP_TX_LENTH                  1                             // 回复帧帧长
 

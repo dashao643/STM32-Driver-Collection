@@ -22,19 +22,20 @@
 19. 低功耗(开发中)
 
 ## 未来：
-1. MQTT
+1. 物联网平台MQTT
 2. 红外通信、RFID
 3. 以太网(W5500)
-5. 蓝牙、4G、LoRa、NB、Zigbee
-6. Ymodem协议OTA升级
-7. SD卡、IC卡
-8. 超声波
-9. DAC播放音频
-11. PCF8574 、MPU6050
-13. IIS协议、USB协议
-14. 摄像头模块
-15. FSMC协议
-16. RTOS操作系统
-17. FatFS文件管理
-18. LVGL屏幕库
-19. TFT彩屏
+4. 蓝牙、4G、LoRa、NB、Zigbee
+5. Ymodem协议OTA升级
+6. SD卡、IC卡
+7. 超声波
+8. DAC播放音频
+9. PCF8574 、MPU6050
+10. IIS协议、USB协议
+11. 摄像头+openmv
+12. FSMC协议
+13. RTOS操作系统
+14. FatFS文件管理
+15. LVGL屏幕库
+16. TFT彩屏
+17. lwIP协议
