@@ -1,10 +1,59 @@
+#include "stm32f1xx.h"
+#include "stm32f1xx_hal.h"
 #include "power.h"
+#include "stm32f1xx_hal_pwr.h"
+#include "tim.h"
 
-/*
-| 模式          | CPU | 时钟                         |    外设           |  RAM   | 寄存器  | 典型电流     | 唤醒方式      |
-| ------------ | --- | ---------------------------- | ----------------- | ------ | ------ | -------- | ---------------- |
-| 睡眠(Sleep)   | 停 | 主时钟(HSE/PLL)可选关          | 大部分可选关       |  保持  | 保持   | ~1mA     | 任意中断           |
-| 停止(Stop)    | 停 | 所有高速时钟停,LSI/LSE 可选保持 | 大部分停，IWDG 可选 |  保持 | 保持   | ~20~50μA | 外部中断、RTC、IWDG  |
-| 待机(Standby) | 停 | 所有时钟停,仅 LSE 可选          | 全停              |  掉电  | 仅备份域保持 | ~2~5μA   | WKUP 引脚、RTC、NRST |
+#include <stdio.h>
 
-*/
+void POWER_Init(void)
+{
+  if(__HAL_PWR_GET_FLAG(PWR_FLAG_WU) == SET){
+    printf("被 WKUP RTC 事件唤醒");
+    __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+  }
+  if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) == SET){
+    printf("从 standby 模式复位");
+    __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
+  }
+
+}
+
+void POWER_EnterSleep(void)
+{
+  // 暂停时钟
+  HAL_TIM_Base_Stop_IT(&htim4);
+  HAL_SuspendTick();
+
+  // 进入睡眠模式
+  HAL_PWR_EnterSLEEPMode(0, PWR_SLEEPENTRY_WFI);
+
+  // 恢复时钟
+  HAL_ResumeTick();
+  HAL_TIM_Base_Start_IT(&htim4);
+}
+
+void POWER_EnterStop(void)
+{
+  // 暂停时钟
+  HAL_TIM_Base_Stop_IT(&htim4);
+  HAL_SuspendTick();
+
+  // 清除外部中断,防止被阻止进入 Stop
+  __HAL_GPIO_EXTI_CLEAR_FLAG(GPIO_PIN_All);
+
+  // 进入停止模式
+  HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+
+  // 停止从此处唤醒后,默认使用HSI时钟,若要重新使用HSE,在main调用处后加 SystemClock_Config()
+
+  // 恢复时钟
+  HAL_ResumeTick();
+  HAL_TIM_Base_Start_IT(&htim4);
+}
+
+void POWER_EnterStandby(void)
+{
+  HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
+  HAL_PWR_EnterSTANDBYMode();
+}

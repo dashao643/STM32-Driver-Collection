@@ -5,6 +5,8 @@
 #include "oled.h"
 #include "gpio.h"
 
+// 待增加 F1 系列专属函数 HAL_RTCEx_SetSecond_IT 实现秒级中断
+
 static bool showFlag = false;
 
 static RTC_TimeTypeDef rtcTime = {0};

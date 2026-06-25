@@ -58,10 +58,8 @@ static void OLED_WriteData(uint8_t data[], uint16_t length)
 #endif
 }
 
-/**
- * @brief 初始化配置
- * 
- */
+/*-----------------------------------------------------------------*/
+
 void OLED_Init(void) 
 {
   uint8_t OLED_CmdInit[] = {

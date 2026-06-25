@@ -26,6 +26,12 @@ static GPIO_PortPin_t dataBit[] = {
   {LCD1602_D7_GPIO_Port, LCD1602_D7_Pin}
 };
 
+inline static void RS_Set(GPIO_PinState pinState);
+inline static void RW_Set(GPIO_PinState pinState);
+inline static void EN_Set(GPIO_PinState pinState);
+static void writeData(uint8_t data);
+static void writeCmd(uint8_t cmd);
+
 inline static void RS_Set(GPIO_PinState pinState)
 {
   HAL_GPIO_WritePin(LCD1602_RS_GPIO_Port, LCD1602_RS_Pin, pinState);
