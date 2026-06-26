@@ -248,22 +248,22 @@ void DS18B20_Init(void)
   setConfig();
 }
 
-void DS18B20_Task(void)
-{
-  if((HAL_GetTick() - ds18b20.timer) < DS18B20_READ_INTERVAL_MS){
-    return;
-  }
+// void DS18B20_Task(void)
+// {
+//   if((HAL_GetTick() - ds18b20.timer) < DS18B20_READ_INTERVAL_MS){
+//     return;
+//   }
 
-  ds18b20.timer = HAL_GetTick();
-  updateTemp();
+//   ds18b20.timer = HAL_GetTick();
+//   updateTemp();
 
-  // 处理成字符串显示:XX.XX°C
-  char tempStr[7] = {0};
-  int16_t temp4Digit = ds18b20.tempInt * 100 + ds18b20.tempDec;
-  // printf("temp4Digit=%d\n",temp4Digit);
-  IntToString_2(temp4Digit, tempStr, 7);
-  OLED_ShowString(2, 1, tempStr);
-}
+//   // 处理成字符串显示:XX.XX°C
+//   char tempStr[7] = {0};
+//   int16_t temp4Digit = ds18b20.tempInt * 100 + ds18b20.tempDec;
+//   // printf("temp4Digit=%d\n",temp4Digit);
+//   IntToString_2(temp4Digit, tempStr, 7);
+//   OLED_ShowString(2, 1, tempStr);
+// }
 
 void DS18B20_GetTemp(int8_t *tempInt, uint8_t *tempDec)
 {

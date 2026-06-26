@@ -1,5 +1,5 @@
-#ifndef __DS18B20_DEF_H
-#define __DS18B20_DEF_H
+#ifndef __DS18B20_DEF_H__
+#define __DS18B20_DEF_H__
 
 // ROM Commands
 #define DS18B20_SEARCH_ROM                  0xF0    // 多从机使用

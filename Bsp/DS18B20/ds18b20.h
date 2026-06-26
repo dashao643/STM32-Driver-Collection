@@ -1,5 +1,5 @@
-#ifndef __DS18B20_H
-#define __DS18B20_H
+#ifndef __DS18B20_H__
+#define __DS18B20_H__
 
 #include "ds18b20_def.h"
 
@@ -40,7 +40,7 @@ typedef struct {
 } DS18B20_t;
 
 void DS18B20_Init(void);
-void DS18B20_Task(void);
+// void DS18B20_Task(void);   // 应用层函数,此处不该声明
 void DS18B20_GetTemp(int8_t *tempInt, uint8_t *tempDec);
 
 #endif
