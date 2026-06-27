@@ -1,8 +1,7 @@
-#include "modbus.h"
-#include "general.h"
-#include "modbus_app.h"
-#include "stm32f1xx.h"
 #include "stm32f1xx_hal.h"
+#include "modbus.h"
+#include "modbus_app.h"
+#include "general.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -172,7 +171,7 @@ static void errorReply(const uint8_t errorCode)
 }
 
 /**
- * @brief 状态机实现帧验证
+ * @brief 状态机实现帧处理,一次调用处理一个状态
  * 
  */
 static void frameProcess(void)
@@ -262,6 +261,7 @@ static void frameProcess(void)
     break;
   }
   default:
+    modbus.state = MODBUS_STATE_RESET;
     break;
   }
 }
@@ -399,17 +399,14 @@ My_UART_t* Modbus_Get_UART(void)
   return &modbus.uart;
 }
 
-void Modbus_Transmit(uint8_t *data, uint8_t size)
+void Modbus_Transmit(const uint8_t *data, uint8_t size)
 {
   if(size > MODBUS_TX_BUFF_MAXLENTH) 
     size = MODBUS_TX_BUFF_MAXLENTH;
-  for(uint8_t i = 0; i < size; i++){
-    modbus.uart.txBuf[i] = *data;
-  }
-#ifdef MODBUS_UART
+  memcpy(modbus.uart.txBuf, data, size);
+#if defined(MODBUS_UART)
   UART_Transmit(&modbus.uart, size, BLOCK, MODBUS_UARTX_TIMEOUT);
-#endif
-#ifdef MODBUS_RS485
+#elif defined(MODBUS_RS485)
   RS485_Transmit(&modbus.rs485, size, BLOCK, MODBUS_UARTX_TIMEOUT);
 #endif
 }

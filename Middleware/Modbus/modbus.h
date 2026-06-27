@@ -5,8 +5,8 @@
 #include <stdbool.h>
 
 /********************* ↓选择mobus硬件层协议↓ *******************/
-// #define MODBUS_UART
-#define MODBUS_RS485
+#define MODBUS_UART
+// #define MODBUS_RS485
 /********************* ↑选择mobus硬件层协议↑ *******************/
 
 #ifdef MODBUS_UART
@@ -16,10 +16,10 @@
 #include "rs485.h"
 #endif
 
-// #define MODBUS_INSTANCE                 USART1
-// #define MODBUS_HANDLE                   &huart1
-#define MODBUS_INSTANCE                 USART3
-#define MODBUS_HANDLE                   &huart3
+#define MODBUS_INSTANCE                 USART1
+#define MODBUS_HANDLE                   &huart1
+// #define MODBUS_INSTANCE                 USART3
+// #define MODBUS_HANDLE                   &huart3
 
 #define MODBUS_UARTX_TIMEOUT            100
 #define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
@@ -37,7 +37,7 @@
 #define MODBUS_FUNC_WRITE_SINGLE_REG    0x06    // 写单个保持寄存器              
 #define MODBUS_FUNC_WRITE_MULTI_COILS   0x0F    // 写多个线圈
 #define MODBUS_FUNC_WRITE_MULTI_REGS    0x10    // 写多个保持寄存器               // 支持
-#define MODBUS_FUNC_IAP_HANDSHAKE       0x42     // 进入升级模式（自定义功能码）   // 正在支持
+#define MODBUS_FUNC_IAP_HANDSHAKE       0x42     // 进入升级模式（自定义功能码）   // 支持
 
 // 错误码
 #define MODBUS_FUNC_ERROR               0x01    // 非法功能码
@@ -86,6 +86,6 @@ typedef struct {
 void Modbus_Init(void);
 void Modbus_Task(void);
 My_UART_t* Modbus_Get_UART(void);
-void Modbus_Transmit(uint8_t *data, uint8_t size);
+void Modbus_Transmit(const uint8_t *data, uint8_t size);
 
 #endif
