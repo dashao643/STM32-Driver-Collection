@@ -1,5 +1,5 @@
-#ifndef __OLED_FONT_H
-#define __OLED_FONT_H
+#ifndef __OLED_FONT_H__
+#define __OLED_FONT_H__
 
 // ASCII表,不含控制字符
 // 偏移量32 (0x20)
