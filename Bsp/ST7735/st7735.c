@@ -7,12 +7,18 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
-/*
-The MSB is transmitted first
-*/
+// The MSB is transmitted first
 
-// PIN_HIGH / PIN_LOW
+inline static void RES_Set(GPIO_PinState pinState);
+inline static void CS_Set(GPIO_PinState pinState);
+inline static void DC_Set(GPIO_PinState pinState);
+static void writeData(uint8_t data);
+static void writeCmd(uint8_t cmd);
+static void setStartPixel(uint8_t rowPixel, uint8_t colPixel);
+static void setPixelWindow(uint8_t rowBegin, uint8_t colBegin, uint8_t rowEnd, uint8_t colEnd);
+
 // 低有效
 inline static void RES_Set(GPIO_PinState pinState)
 {
@@ -34,15 +40,8 @@ inline static void DC_Set(GPIO_PinState pinState)
 static void writeData(uint8_t data)
 {
   DC_Set(PIN_HIGH);
+
   HAL_SPI_Transmit(ST7735_HANDLE, &data, 1, ST7735_TX_TIMEOUT_MS);
-}
-
-static void writeData16Bit(uint16_t data)
-{
-  uint8_t pData[2] = {data >> 8, data};
-
-  DC_Set(PIN_HIGH);
-  HAL_SPI_Transmit(ST7735_HANDLE, pData, 2, ST7735_TX_TIMEOUT_MS);
 }
 
 static void writeCmd(uint8_t cmd)
@@ -51,23 +50,46 @@ static void writeCmd(uint8_t cmd)
   HAL_SPI_Transmit(ST7735_HANDLE, &cmd, 1, ST7735_TX_TIMEOUT_MS);
 }
 
-static void setStartPoint(uint8_t row, uint8_t col)
+// row: 0 - 159, col: 0 - 127
+static void setStartPixel(uint8_t rowPixel, uint8_t colPixel)
 {
-  if(row > 159) row = 159;
-  if(col > 127) col = 127;
+  if(rowPixel >= ST7735_ROW_PIXEL) return;
+  if(colPixel >= ST7735_COL_PIXEL) return;
 
-	writeCmd(0x2A);
+	writeCmd(ST7735_COLUMN_ADDRESS_SET);
 	writeData(0x00);
-	writeData(col);
+	writeData(colPixel);
 	writeData(0x00);
-	writeData(0x7F);
+	writeData(ST7735_COL_PIXEL - 1);
 
-	writeCmd(0x2B);
+	writeCmd(ST7735_ROW_ADDRESS_SET);
 	writeData(0x00);
-	writeData(row);
+	writeData(rowPixel);
 	writeData(0x00);
-	writeData(0x9F);
+	writeData(ST7735_ROW_PIXEL - 1);
 }
+
+static void setPixelWindow(uint8_t rowBegin, uint8_t colBegin, uint8_t rowEnd, uint8_t colEnd)
+{
+  if(rowBegin >= ST7735_ROW_PIXEL) return;
+  if(colBegin >= ST7735_COL_PIXEL) return;
+  if(rowEnd >= ST7735_ROW_PIXEL) return;
+  if(colEnd >= ST7735_COL_PIXEL) return;
+
+	writeCmd(ST7735_COLUMN_ADDRESS_SET);
+	writeData(0x00);
+	writeData(colBegin);
+	writeData(0x00);
+	writeData(colEnd);
+
+	writeCmd(ST7735_ROW_ADDRESS_SET);
+	writeData(0x00);
+	writeData(rowBegin);
+	writeData(0x00);
+	writeData(rowEnd);
+}
+
+/*-----------------------------------------------------------------*/
 
 void ST7735_Init(void)
 {
@@ -89,60 +111,91 @@ void ST7735_Init(void)
 	HAL_Delay(5);
 
 /********************* 初始化指令 *********************/
-	writeCmd(0x11);   // sleep out 退出睡眠模式 
+	writeCmd(ST7735_SLEEP_OUT);
 	HAL_Delay(120);
 
-  // writeCmd(0x01);   // 软件复位 + 进入睡眠?
-  // HAL_Delay(120);
-  // writeCmd(0x10);   // 进入睡眠模式
-  // writeCmd(0x13);   // Normal Display Mode On
-  // writeCmd(0x20);   // Display Inversion Off
-  // writeCmd(0x21);   // Display Inversion On
-  writeCmd(0x29);   // Display On
+  writeCmd(ST7735_NORMAL_DISPLAY_MODE_ON);
 
-  writeCmd(0x2A);   // 设置列地址窗口
+  writeCmd(ST7735_DISPLAY_INVERSION_OFF);
+  
+  writeCmd(ST7735_DISPLAY_ON);
+
+  writeCmd(ST7735_COLUMN_ADDRESS_SET);
+	writeData(0x00);  // begin
 	writeData(0x00);
-	writeData(0x00);
-	writeData(0x00);
+	writeData(0x00);  // end
 	writeData(0x7F);
 
-	writeCmd(0x2B);   // 设置行地址窗口
+	writeCmd(ST7735_ROW_ADDRESS_SET);
+	writeData(0x00);  // begin
 	writeData(0x00);
 	writeData(0x00);
-	writeData(0x00);
-	writeData(0x9F);
+	writeData(0x9F);  // end
 
-  // writeCmd(0x2C);    // Memory Write
-  // writeData(0x33):  // Scroll Area Set 
-	writeCmd(0x36);    // MX, MY, RGB mode 
-	writeData(0x00); 
+	writeCmd(ST7735_MEMORY_DATA_ACCESS_CONTROL);
+	writeData(0xC0);  // MY MX MV ML RGB MH
 
-  // writeCmd(0x37);     // Vertical Scroll Start Address of RAM
-  writeCmd(0x3A);  // Interface Pixel Format 
+  writeCmd(ST7735_INTERFACE_PIXEL_FORMAT);
   writeData(0x05);  // 16-bit/pixel 
 
-  writeCmd(0xB1); //  Panel Function Command List 
+  writeCmd(ST7735_FRAME_RATE_CONTROL);
 	writeData(0x01); 
 	writeData(0x2C); 
 	writeData(0x2D); 
 
-	writeCmd(0xB4); //Column inversion 
-	writeData(0x07); 
+	writeCmd(ST7735_DISPLAY_INVERSION_CONTROL);
+	writeData(0x07); // Dot Inversion
 
-	writeCmd(0xC0); 
+	writeCmd(ST7735_POWER_CONTROL_1); 
 	writeData(0xA2); 
 	writeData(0x02); 
 	writeData(0x84); 
 
-	writeCmd(0xC1); 
+  writeCmd(ST7735_POWER_CONTROL_2); 
 	writeData(0xC5); 
 
-	writeCmd(0xC2); 
+  writeCmd(ST7735_POWER_CONTROL_3); 
 	writeData(0x0A); 
 	writeData(0x00); 
 
-	writeCmd(0xC5); //VCOM 
+	writeCmd(ST7735_VCOM_CONTROL_1);
 	writeData(0x0E); 
+
+	writeCmd(ST7735_GAMMA_POS_POLARITY);
+	writeData(0x0f); 
+	writeData(0x1a); 
+	writeData(0x0f); 
+	writeData(0x18); 
+	writeData(0x2f); 
+	writeData(0x28); 
+	writeData(0x20); 
+	writeData(0x22); 
+	writeData(0x1f); 
+	writeData(0x1b); 
+	writeData(0x23); 
+	writeData(0x37); 
+	writeData(0x00); 	
+	writeData(0x07); 
+	writeData(0x02); 
+	writeData(0x10); 
+
+  writeCmd(ST7735_GAMMA_NEG_POLARITY);
+	writeData(0x0f); 
+	writeData(0x1b); 
+	writeData(0x0f); 
+	writeData(0x17); 
+	writeData(0x33); 
+	writeData(0x2c); 
+	writeData(0x29); 
+	writeData(0x2e); 
+	writeData(0x30); 
+	writeData(0x30); 
+	writeData(0x39); 
+	writeData(0x3f); 
+	writeData(0x00); 
+	writeData(0x07); 
+	writeData(0x03); 
+	writeData(0x10);  
 
   CS_Set(PIN_HIGH);
 
@@ -154,29 +207,117 @@ void ST7735_Init(void)
 void ST7735_Clear(void)
 {
   CS_Set(PIN_LOW);
-  setStartPoint(0, 0);
+  setStartPixel(0, 0);
   writeCmd(0x2C);
   DC_Set(PIN_HIGH);
 
-  uint8_t rowBuf[ST7735_COL * 2] = {0};
-  memset(rowBuf, ST7735_WHITE, sizeof(rowBuf));
+  // 清屏显示为黑色
+  static uint8_t rowBuf[ST7735_COL_PIXEL * 2] = {0};
+  // memset(rowBuf, 0xFF, sizeof(rowBuf));
   
-  for(uint8_t row = 0; row < ST7735_ROW; row++){
+  for(uint8_t row = 0; row < ST7735_ROW_PIXEL; row++){
     HAL_SPI_Transmit(ST7735_HANDLE, rowBuf, sizeof(rowBuf), ST7735_TX_TIMEOUT_MS);
   }
   CS_Set(PIN_HIGH);
 }
 
-void ST7735_Test(void)
+/**
+ * @brief 指定行列显示字符
+ * 
+ * @param row row 指定在 1 - 10 行显示
+ * @param col col 指定在 1 - 16 列显示
+ * @param ch str 字符串数组
+ * @param color 16位RGB(5,6,5)
+ */
+void ST7735_ShowChar(uint8_t row, uint8_t col, char ch, uint16_t color)
 {
+  if(row == 0 || row > ST7735_ROW_CNT) return;
+  if(col == 0 || col > ST7735_COL_CNT) return;
+
   CS_Set(PIN_LOW);
 
-  setStartPoint(0, 0);
-  writeCmd(0x2C);
+  uint8_t rowBegin = (row - 1) * CHARACTER_HEIGHT;
+  uint8_t colBegin = (col - 1) * CHARACTER_WIDTH;
   
-  for(uint16_t i = 0; i < 1000; i++){
-    writeData16Bit(0xFFE0);
+  uint8_t *chArr = (uint8_t *)ST7735_ASCII_1608[ch - ASCII_OFFSET];
+
+  // 256 字节单字符缓冲,初始化为为黑色
+  static uint8_t rowBuf[CHARACTER_WIDTH * CHARACTER_HEIGHT * 2];
+  memset(rowBuf, 0x00, sizeof(rowBuf));
+
+  // 设置单个字符显示窗口大小
+  setPixelWindow(rowBegin, colBegin, rowBegin + CHARACTER_HEIGHT - 1, colBegin + CHARACTER_WIDTH - 1);
+
+  // 根据字符数组填充缓冲
+  for (uint8_t byteIdx = 0; byteIdx < 16; byteIdx++) {
+    uint8_t chByte = chArr[byteIdx];
+
+    for(uint8_t bitIdx = 0; bitIdx < 8; bitIdx++){
+      uint16_t pixelIdx = byteIdx * 8 + bitIdx;
+      if(chByte & 0x80) {
+        rowBuf[pixelIdx * 2] = color >> 8;
+        rowBuf[pixelIdx * 2 + 1] = color;
+      }
+      chByte <<= 1;
+    }
   }
+
+  writeCmd(ST7735_MEMORY_WRITE);
+  DC_Set(PIN_HIGH);
+  HAL_SPI_Transmit(ST7735_HANDLE, rowBuf, sizeof(rowBuf), ST7735_TX_TIMEOUT_MS);
+
+  CS_Set(PIN_HIGH);
+}
+
+/**
+ * @brief 指定行列显示字符串(Z型显示,溢出屏幕丢弃)
+ * 
+ * @param row row 指定在 1 - 10 行显示
+ * @param col col 指定在 1 - 16 列显示
+ * @param str str 字符串数组
+ * @param color 16位RGB(5,6,5)
+ */
+void ST7735_ShowString(uint8_t row, uint8_t col, const char *str, uint16_t color)
+{
+  if(row == 0 || row > ST7735_ROW_CNT) return;
+  if(col == 0 || col > ST7735_COL_CNT) return;
+
+  uint16_t length = strlen(str);
+
+  for(uint8_t i = 0; i < length; i++){
+    ST7735_ShowChar(row, col++, str[i], color);
+    if(col > ST7735_COL_CNT) {
+      col = 1;
+      row++;
+    }
+  }
+}
+
+// 实现30帧动画: 33毫秒一张
+// 传输时长: 9ms一张
+void ST7735_ShowImage(const uint8_t *image, uint8_t imageWindow)
+{
+	uint16_t arrSize = 0;
+
+  CS_Set(PIN_LOW);
+
+	if(imageWindow == ST7735_IMAGE_160_X_128) {
+		arrSize = 40960; // (160 * 128 * 2)
+		setStartPixel(0,0);
+	}
+	else if(imageWindow == ST7735_IMAGE_128_X_128) {
+		arrSize = 32768;	// (128 * 128 * 2)
+		// 正方形图像,正中间显示
+		setPixelWindow(16, 0, 143, 127);
+	}
+	else if(imageWindow == ST7735_IMAGE_128_X_160) {
+		arrSize = 40960;
+		// 修改显示方向
+
+	}
+	writeCmd(ST7735_MEMORY_WRITE);
+	DC_Set(PIN_HIGH);
+	HAL_SPI_Transmit(ST7735_HANDLE, image, arrSize, ST7735_TX_TIMEOUT_MS);
 
   CS_Set(PIN_HIGH);
 }
