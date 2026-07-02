@@ -4,6 +4,8 @@
 #include "spi.h"
 #include <stdint.h>
 
+// 总大小: 64MBit -> 8MB
+
 #define W25Q64_INSTANCE                 SPI1
 #define W25Q64_HANDLE                   &hspi1
 #define W25Q64_CS_GPIO_PORT             SPI1_CS1_GPIO_Port
