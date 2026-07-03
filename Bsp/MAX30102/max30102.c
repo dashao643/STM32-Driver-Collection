@@ -2,120 +2,99 @@
 #include "max30102.h"
 #include "max30102_def.h"
 #include "i2c.h"
-#include "stm32f4xx_hal_i2c.h"
 
 #include <stdint.h>
 #include <stdio.h>
 
-// #define MAX_30102_INT_Pin GPIO_PIN_7
-// #define MAX_30102_INT_GPIO_Port GPIOB
-// #define MAX_30102_INT_EXTI_IRQn EXTI9_5_IRQn
-
-// 从机地址最低位为读写位: 0 写, 1 读
-/*
-要读取位于FIFO_DATA之后的下一个寄存器，需要使用I2C写命令来改变读取指针的位置
-
-SpO2:
-MODE -> 0x03 
-TEMP_EN -> 1
-PPG_RDY-> 0
-HR:
-选择 red LED or the infrared LED channel 
-MODE -> 0x02
-PPG_RDY-> 0
-*/
-
 static void memRead(uint16_t memAddr, uint8_t *data)
 {
-  HAL_I2C_Mem_Read(MAX30102_HANDLE, MAX30102_SLAVE_ADDRESS, 
+  HAL_I2C_Mem_Read(MAX30102_HANDLE, MAX30102_SLAVE_ADDRESS,
     memAddr, 1, data, 1, MAX30102_TX_TIMEOUT_MS);
 }
 
 static void memWrite(uint16_t memAddr, uint8_t data)
 {
-  HAL_I2C_Mem_Write(MAX30102_HANDLE, MAX30102_SLAVE_ADDRESS, 
+  HAL_I2C_Mem_Write(MAX30102_HANDLE, MAX30102_SLAVE_ADDRESS,
     memAddr, 1, &data, 1, MAX30102_TX_TIMEOUT_MS);
 }
 
 void MAX30102_Init(void)
 {
-  // 使能所有中断
-  memWrite(MAX30102_INTERRUPT_ENABLE_1, 0xF0);
-  memWrite(MAX30102_INTERRUPT_ENABLE_2, 0x02);
-	// memWrite(MAX30102_INTERRUPT_ENABLE_1,0xc0);
-	// memWrite(MAX30102_INTERRUPT_ENABLE_2,0x00);
+  // 轮询方法,关闭所有中断
+  memWrite(MAX30102_INTERRUPT_ENABLE_1, 0x00);
+  memWrite(MAX30102_INTERRUPT_ENABLE_2, 0x00);
 
   // 清除读写指针
-	memWrite(MAX30102_FIFO_WRITE_POINTER,0x00);
-	memWrite(MAX30102_OVERFLOW_COUNTER,0x00);
-	memWrite(MAX30102_FIFO_READ_POINTER,0x00);
+  memWrite(MAX30102_FIFO_WRITE_POINTER, 0x00);
+  memWrite(MAX30102_OVERFLOW_COUNTER, 0x00);
+  memWrite(MAX30102_FIFO_READ_POINTER, 0x00);
 
-  // sample avg = 32, fifo rollover=false, fifo almost full = 17(available=15)(中断发生时,FIFO中剩余空间)
-	memWrite(MAX30102_FIFO_CONFIGURATION,0xEF);
-  // 0x02 for Red only(测心率), 0x03 for SpO2 mode(测血氧), 0x07 multimode LED
-	memWrite(MAX30102_MODE_CONFIGURATION,0x02);
-  // SPO2_ADC range = 4096nA, SPO2 sample rate (100 Hz), LED pulseWidth (400uS)  
-	memWrite(MAX30102_SPO2_CONFIGURATION,0x27);
-  // Choose value for ~ 7mA for LED1
-	memWrite(MAX30102_LED_PULSE_AMPLITUDE_1,0x24);   	
-  // Choose value for ~ 7mA for LED2
-	memWrite(MAX30102_LED_PULSE_AMPLITUDE_2,0x24);
-  // Choose value for ~ 25mA for Pilot LED
-	memWrite(MAX30102_PROXIMITY_MODE_LED_PULSE_AMPLITUDE,0x7F);
-
-  MAX30102_ClearIRQ();
+  // SMP_AVE=1, rollover=0, almost full=17
+  memWrite(MAX30102_FIFO_CONFIGURATION, 0x0F);
+  // SpO2 mode: Red + IR(计算心率+血氧)
+  memWrite(MAX30102_MODE_CONFIGURATION, 0x03);
+  // 4096nA, 100Hz, 411us (18bit)
+  memWrite(MAX30102_SPO2_CONFIGURATION, 0x27);
+  // LED1 (Red) ~7mA
+  // memWrite(MAX30102_LED_PULSE_AMPLITUDE_1, 0x24);
+  memWrite(MAX30102_LED_PULSE_AMPLITUDE_1, 0x40);
+  // LED2 (IR) ~7mA
+  // memWrite(MAX30102_LED_PULSE_AMPLITUDE_2, 0x24);
+  memWrite(MAX30102_LED_PULSE_AMPLITUDE_2, 0x40);
+  // Pilot LED ~25mA
+  memWrite(MAX30102_PROXIMITY_MODE_LED_PULSE_AMPLITUDE, 0x7F);
+  // memWrite(MAX30102_PROXIMITY_MODE_LED_PULSE_AMPLITUDE, 0xFF);
 }
 
-void MAX30102_Write_Test(void)
+/**
+ * @brief 从FIFO读取指定数量的红光和红外数据
+ * 
+ * @param samples 红光和红外数据结构体数组
+ * @param maxSamples 最大读取数量
+ * @return uint8_t 实际读取数量
+ */
+uint8_t MAX30102_ReadFifo(MAX30102_Sample_t *samples, uint8_t maxSamples)
 {
+  uint8_t writePtr = 0;     // FIFO写指针位置
+  uint8_t readPtr = 0;      // FIFO读指针位置
+  uint8_t available = 0;    // FIFO可读取的数据量
+  uint8_t resCount = 0;     // 返回实际读取数量
+  uint8_t fifoData[6];      // FIFO 6 字节数据
 
-}
-
-void readFIFO(void)
-{
-  uint8_t writePtr = 0;
-  uint8_t readPtr = 0;
-  uint8_t availableSamples = 0;
-  uint8_t fifoData[6] = {0};
-
-  // 获取写指针
   memRead(MAX30102_FIFO_WRITE_POINTER, &writePtr);
-  // 获取读指针
   memRead(MAX30102_FIFO_READ_POINTER, &readPtr);
-  availableSamples = writePtr - readPtr;
-  printf("availableSamples=%d\n",availableSamples);
 
-  // for(uint8_t i = 0; i < availableSamples; i++){
-    HAL_I2C_Mem_Read(MAX30102_HANDLE, MAX30102_SLAVE_ADDRESS, 
-    MAX30102_FIFO_DATA_REGISTER, 1, fifoData, 6, MAX30102_TX_TIMEOUT_MS);
-  // }
-  // 如果要重复读取,重新设置 Write FIFO RD_PTR;
-  // if(availableSamples != 0){
-    for(uint8_t i = 0; i < 6; i++){
-      printf("fifoData=%d\n",fifoData[i]);
-    }
-  // }
-}
+  // 只取后五位
+  writePtr &= 0x1F;
+  readPtr  &= 0x1F;
+  available = (writePtr - readPtr) & 0x1F;
 
-void MAX30102_Read_Test(void)
-{
-  uint8_t data = 0;
+  if (available == 0 || maxSamples == 0 || samples == NULL)
+    return 0;
 
-  memRead(MAX30102_INTERRUPT_ENABLE_1, &data);
-  printf("MAX30102_INTERRUPT_ENABLE_1=%d\n",data);
-  memRead(MAX30102_INTERRUPT_ENABLE_2, &data);
-  printf("MAX30102_INTERRUPT_ENABLE_1=%d\n",data);
-  memRead(MAX30102_FIFO_DATA_REGISTER, &data);
-  printf("MAX30102_FIFO_DATA_REGISTER=%d\n",data);
-  memRead(MAX30102_DIE_TEMP_INTEGER, &data);
-  printf("MAX30102_DIE_TEMP_INTEGER=%d\n",data);
+  resCount = (available < maxSamples) ? available : maxSamples;
+
+  for (uint8_t i = 0; i < resCount; i++) {
+    HAL_I2C_Mem_Read(MAX30102_HANDLE, MAX30102_SLAVE_ADDRESS,
+      MAX30102_FIFO_DATA_REGISTER, 1, fifoData, 6, MAX30102_TX_TIMEOUT_MS);
+
+    samples[i].red = ((uint32_t)fifoData[0] << 16) |
+                     ((uint32_t)fifoData[1] << 8) |
+                     (uint32_t)fifoData[2];
+    samples[i].ir  = ((uint32_t)fifoData[3] << 16) |
+                     ((uint32_t)fifoData[4] << 8) |
+                     (uint32_t)fifoData[5];
+    // red和ir18位数据 
+    samples[i].red &= 0x3FFFF;
+    samples[i].ir  &= 0x3FFFF;
+  }
+
+  return resCount;
 }
 
 void MAX30102_ClearIRQ(void)
 {
   uint8_t data = 0;
   memRead(MAX30102_INTERRUPT_STATUS_1, &data);
-  // printf("data=%d\n",data);
   memRead(MAX30102_INTERRUPT_STATUS_2, &data);
-  // printf("data=%d\n",data);
 }
