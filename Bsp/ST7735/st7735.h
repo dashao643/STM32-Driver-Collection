@@ -1,10 +1,21 @@
 #ifndef __ST7735_H__
 #define __ST7735_H__
 
+#include <stdint.h>
+
+/*
+SPI配置:
+Transmit Only Master
+MSB First
+CPOL: Low
+CPHA: 1 Edge
+*/
+
 // 160 * 128
 // RGB: 5 6 5 = 16
 
-#include <stdint.h>
+// 默认为黑屏
+// 正常初始化后屏幕显示为透光且黑屏
 
 #define ST7735_INSTANCE                 SPI1
 #define ST7735_HANDLE                   &hspi1
@@ -25,14 +36,19 @@
 #define ST7735_BLUE                     0x001F
 #define ST7735_YELLOW                   0xFFE0
 
-#define ST7735_IMAGE_160_X_128          0       // 图片尺寸: 长160,宽128(竖屏显示)
-#define ST7735_IMAGE_128_X_128          1       // 图片尺寸: 长128,宽128(根据默认方向)
-#define ST7735_IMAGE_128_X_160          2       // 图片尺寸: 长160,宽128(横屏显示)
+#define ST7735_IMAGE_160_X_128          40960       // 图片尺寸: 长160,宽128(竖屏显示)
+#define ST7735_IMAGE_128_X_128          32768       // 图片尺寸: 长128,宽128(128*128*2)
+#define ST7735_IMAGE_128_X_160          40960       // 图片尺寸: 长160,宽128(横屏显示)
 
 void ST7735_Init(void);
 void ST7735_Clear(void);
+
 void ST7735_ShowChar(uint8_t row, uint8_t col, char ch, uint16_t color);
 void ST7735_ShowString(uint8_t row, uint8_t col, const char *str, uint16_t color);
-void ST7735_ShowImage(const uint8_t *image, uint8_t imageWindow);
+void ST7735_ShowDecNumber(uint8_t row, uint8_t col, int32_t number, uint8_t numLen);
+
+void ST7735_ShowImage(const uint8_t *image, uint16_t imageWindow);
+void ST7735_ImageStream(const uint8_t *image, uint8_t curTimes, uint8_t sumTimes, uint16_t imageWindow);
+void ST7735_ImageStreamFix(const uint8_t *image, uint8_t curTimes, uint16_t imageWindow);
 
 #endif
