@@ -5,6 +5,8 @@
 #include "dht11.h"
 #include "oled.h"
 #include "my_rtc.h"
+#include "st7735.h"
+#include "hc_sr04.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -14,13 +16,18 @@
 // #define RTC_TASK_SECONDS  // 秒中断方式
 // #define RTC_TASK_TIMER    // timer定时器中断方式
 
-static System_t system = {0};
+static uint32_t dht11Timer;
+static uint32_t rtcTimer;
+static bool rtcFlag;
+static uint32_t hcsr04Timer;
 
 /********************* 系统任务初始化 *********************/
 void System_Init(void)
 {
-  system.dht11Timer = HAL_GetTick();
-  system.rtcTimer = HAL_GetTick();
+  dht11Timer = HAL_GetTick();
+  rtcTimer = HAL_GetTick();
+  rtcFlag = false;
+  hcsr04Timer = HAL_GetTick();
 
   OLED_ShowString(1, 1, "temp=");
   OLED_ShowString(1, 9, "humi=");
@@ -33,9 +40,9 @@ void System_Init(void)
 /********************* 系统任务 *********************/
 void DHT11_Task(void)
 {
-  if(HAL_GetTick() - system.dht11Timer < 2000)  return;
+  if(HAL_GetTick() - dht11Timer < 2000)  return;
 
-  system.dht11Timer = HAL_GetTick();
+  dht11Timer = HAL_GetTick();
 
   uint8_t temp = 0;
   uint8_t humi = 0;
@@ -46,14 +53,27 @@ void DHT11_Task(void)
   OLED_ShowDecNumber(1,14,humi,2);
 }
 
+void HC_SR04_Task(void)
+{
+  if(HAL_GetTick() - hcsr04Timer < 250)  return;
+
+  hcsr04Timer = HAL_GetTick();
+
+  uint16_t distance_mm = 0;
+  uint8_t state = HC_SR04_Measure(&distance_mm);
+
+  // printf("state=%d\n", state);
+  // printf("distance_cm=%dmm\n", distance_mm);
+}
+
 void RTC_Task(void)
 {
 #ifdef RTC_SYSTICK
-  if(HAL_GetTick() - system.rtcTimer < 1000)  return;
-  system.rtcTimer = HAL_GetTick();
+  if(HAL_GetTick() - rtcTimer < 1000)  return;
+  rtcTimer = HAL_GetTick();
 #elif defined RTC_TASK_SECONDS
-  if(!system.rtcFlag) return;
-  system.rtcFlag = false;
+  if(!rtcFlag) return;
+  rtcFlag = false;
 #endif
   RTC_TimeTypeDef time = {0};
   RTC_DateTypeDef date = {0};
@@ -68,24 +88,28 @@ void RTC_Task(void)
   snprintf(dateBuf, sizeof(dateBuf), "%02d-%02d", date.Month, date.Date);
   snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d", time.Hours, time.Minutes, time.Seconds);
 
-// printf("test\n");
+  // printf("test\n");
   OLED_ShowString(4, 1, dateBuf);
   OLED_ShowString(4, 7, timeBuf);
-// printf("test\n");
+
+  ST7735_ShowString(1, 1, dateBuf, ST7735_WHITE);
+  ST7735_ShowString(2, 1, timeBuf, ST7735_WHITE);
+  // printf("test\n");
+  // LED_RED_TOGGLE();
 }
 
 /********************* 系统中断回调函数 *********************/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim->Instance == TIM4){
-    // LED_RED_TOGGLE();
+  // LED_RED_TOGGLE();
   }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if(GPIO_Pin == KEY_8_Pin){
-    // LED_RED_TOGGLE();
+  // LED_RED_TOGGLE();
   }
 }
 

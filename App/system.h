@@ -4,16 +4,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct {
-  uint32_t dht11Timer;
-  uint32_t rtcTimer;
-  bool rtcFlag;
-} System_t;
-
 void System_Init(void);
 
 void DHT11_Task(void);
 void RTC_Task(void);
+void HC_SR04_Task(void);
 
 // #define SYSTEM_EVENT_MY_RTC				  (uint32)(0x01<<0)												       	// 校时
 // #define SYSTEM_EVENT_INFRARED			  (uint32)(0x01<<1)                              	// 红外
