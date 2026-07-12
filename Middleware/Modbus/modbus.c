@@ -1,13 +1,12 @@
+#include "my_uart.h"
 #include "stm32f1xx_hal.h"
 #include "modbus.h"
-#include "modbus_app.h"
 #include "general.h"
+#include "modbus_app.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "led.h"
 
 #ifdef MODBUS_RS485
 #define uart rs485.uart     // 字段别名映射
@@ -56,7 +55,7 @@ static bool addressCheck(void)
 }
 
 /**
- * @brief 功能码校验，注释的为暂不支持
+ * @brief 功能码校验
  * 
  * @return true 校验成功
  * @return false 校验失败
@@ -81,6 +80,7 @@ static bool funcCheck(void)
         return false;
     case MODBUS_FUNC_WRITE_MULTI_COILS:
     case MODBUS_FUNC_WRITE_MULTI_REGS:
+    case MODBUS_FUNC_W25Q64_WRITE:
     case MODBUS_FUNC_IAP_HANDSHAKE:{
       modbus.record.isRead = false;
       break;
@@ -113,11 +113,13 @@ static bool regCntCheck(void)
   regCnt.bytes[0] = modbus.uart.rxBuf[5];
   regCnt.bytes[1] = modbus.uart.rxBuf[4];
 
+  // 指令长度固定
   if(modbus.record.func == MODBUS_FUNC_WRITE_MULTI_REGS){
     if(modbus.uart.rxSize != (MODBUS_SINGLE_WRITE_LENTH + modbus.uart.rxBuf[6]))
       return false;
   }
-  if(modbus.record.func == MODBUS_FUNC_IAP_HANDSHAKE){
+  if(modbus.record.func == MODBUS_FUNC_IAP_HANDSHAKE || 
+    modbus.record.func == MODBUS_FUNC_W25Q64_WRITE){
     if(modbus.uart.rxSize != MODBUS_RX_BUFF_MINLENTH)
       return false;
   }
@@ -170,10 +172,7 @@ static void errorReply(const uint8_t errorCode)
 #endif
 }
 
-/**
- * @brief 状态机实现帧处理,一次调用处理一个状态
- * 
- */
+// 状态机实现帧处理
 static void frameProcess(void)
 {
   switch (modbus.state) {
@@ -261,7 +260,6 @@ static void frameProcess(void)
     break;
   }
   default:
-    modbus.state = MODBUS_STATE_RESET;
     break;
   }
 }
@@ -317,6 +315,11 @@ static void frameExecute(void)
   // }
   case MODBUS_FUNC_WRITE_MULTI_REGS:{
     Modbus_App_Write_Reg(modbus.record.regArr,modbus.uart.rxBuf + 6);
+    break;
+  }
+  case MODBUS_FUNC_W25Q64_WRITE:{
+    bool res = Modbus_App_W25Q64(modbus.record.regArr, modbus.record.regCnt);
+    printf("res=%d\n", res);
     break;
   }
   case MODBUS_FUNC_IAP_HANDSHAKE:{
@@ -399,11 +402,18 @@ My_UART_t* Modbus_Get_UART(void)
   return &modbus.uart;
 }
 
+bool Modbus_GetFrameFlag(void)
+{
+  return modbus.uart.frameEnd;
+}
+
 void Modbus_Transmit(const uint8_t *data, uint8_t size)
 {
-  if(size > MODBUS_TX_BUFF_MAXLENTH) 
+  if(size > MODBUS_TX_BUFF_MAXLENTH)
     size = MODBUS_TX_BUFF_MAXLENTH;
+
   memcpy(modbus.uart.txBuf, data, size);
+
 #if defined(MODBUS_UART)
   UART_Transmit(&modbus.uart, size, BLOCK, MODBUS_UARTX_TIMEOUT);
 #elif defined(MODBUS_RS485)

@@ -21,11 +21,11 @@
 // #define MODBUS_INSTANCE                 USART3
 // #define MODBUS_HANDLE                   &huart3
 
-#define MODBUS_UARTX_TIMEOUT            100
-#define MODBUS_RX_BUFF_MAXLENTH         64      // 最大帧长度
+#define MODBUS_UARTX_TIMEOUT            200
+#define MODBUS_RX_BUFF_MAXLENTH         256     // 最大帧长度
 #define MODBUS_RX_BUFF_MINLENTH         8       // 最小帧长度
 #define MODBUS_SINGLE_WRITE_LENTH       9       // 单写操作帧长
-#define MODBUS_TX_BUFF_MAXLENTH         16      // 回复帧最大帧长
+#define MODBUS_TX_BUFF_MAXLENTH         50      // 回复帧最大帧长
 
 #define MODBUS_SLAVE_ADDR               0x01    // 从机地址
 
@@ -37,16 +37,19 @@
 #define MODBUS_FUNC_WRITE_SINGLE_REG    0x06    // 写单个保持寄存器              
 #define MODBUS_FUNC_WRITE_MULTI_COILS   0x0F    // 写多个线圈
 #define MODBUS_FUNC_WRITE_MULTI_REGS    0x10    // 写多个保持寄存器               // 支持
-#define MODBUS_FUNC_IAP_HANDSHAKE       0x42     // 进入升级模式（自定义功能码）   // 支持
 
-// 错误码
+/********************************** 自定义功能码 **********************************/
+#define MODBUS_FUNC_W25Q64_WRITE        0x41    // 写w25q64FLASH                 // 支持
+#define MODBUS_FUNC_IAP_HANDSHAKE       0x42    // 进入升级模式                   // 支持
+
+/********************************** 错误码 **********************************/
 #define MODBUS_FUNC_ERROR               0x01    // 非法功能码
 #define MODBUS_REGS_ARR_ERROR           0x02    // 非法寄存器地址
 #define MODBUS_REGS_CNT_ERROR           0x03    // 非法寄存器数量
 #define MODBUS_OP_DATA_ERROR            0x04    // 非法操作数
 
 typedef enum {
-  MODBUS_STATE_IDLE = 0,        // 空闲，等待一帧开始
+  MODBUS_STATE_IDLE,            // 空闲，等待一帧开始
   MODBUS_STATE_ADDR,            // 接收并校验从机地址
   MODBUS_STATE_CRC,             // 校验CRC
   MODBUS_STATE_FUNC,            // 接收功能码
@@ -85,7 +88,10 @@ typedef struct {
 
 void Modbus_Init(void);
 void Modbus_Task(void);
+
 My_UART_t* Modbus_Get_UART(void);
+bool Modbus_GetFrameFlag(void);
+
 void Modbus_Transmit(const uint8_t *data, uint8_t size);
 
 #endif
