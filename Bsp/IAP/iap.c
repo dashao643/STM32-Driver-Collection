@@ -1,9 +1,15 @@
+#include "stm32f1xx_hal.h"
 #include "iap.h"
-#include "stm32f1xx_hal_def.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+
+#if defined IAP_MODEL_FROM_DIR_UART
+#include "usart.h"
+#elif defined IAP_MODEL_FROM_EXT_FLASH
+#include "w25q64.h"
+#endif
 
 /*
 FLASH地址:        0x8000000 - 0x800FFFF 64KB
@@ -24,14 +30,15 @@ static void errorHandler(uint8_t errorCode);
 
 static void response(uint8_t byte)
 {
-#if IAP_MODEL == IAP_MODEL_FROM_UART
+#ifdef IAP_MODEL_FROM_DIR_UART
   HAL_UART_Transmit(IAP_HANDLE, &byte, 1, IAP_TX_TIMEOUT);
 #endif 
 }
 
+// true: 等待成功, false: 等待超时
 static bool waitPackage(void)
 {
-#if IAP_MODEL == IAP_MODEL_FROM_UART
+#ifdef IAP_MODEL_FROM_DIR_UART
   if(HAL_UART_Receive(IAP_HANDLE, rxBuf, IAP_RX_BUFF_MAXLENTH, IAP_RX_TIMEOUT) == HAL_OK){
     return true;
   }
@@ -41,18 +48,20 @@ static bool waitPackage(void)
 
 static void writeFlash(void)
 {
-  if(packageCnt >=  48){
+  // 从零开始地址, 等于48时再执行即溢出
+  if(packageCnt >= 48){
     response(IAP_ERROR_OVERFLOW);
     errorHandler(IAP_ERROR_OVERFLOW);
   }
 
   uint32_t eraseRes = 0;
   uint32_t addr = IAP_APP_ADDR + packageCnt * FLASH_PAGE_SIZE;
+
   FLASH_EraseInitTypeDef erase = {0};
-  erase.TypeErase = FLASH_TYPEERASE_PAGES;
-  erase.Banks = FLASH_BANK_1;
-  erase.NbPages = 1;
-  erase.PageAddress = addr;
+  erase.TypeErase = FLASH_TYPEERASE_PAGES;  // 固定
+  erase.Banks = FLASH_BANK_1;               // 固定
+  erase.NbPages = 1;                        // 一次擦除一页
+  erase.PageAddress = addr;                 // 擦除的页地址
 
   HAL_FLASH_Unlock();
   HAL_FLASHEx_Erase(&erase, &eraseRes);
@@ -62,11 +71,17 @@ static void writeFlash(void)
     response(IAP_ERROR_ERASE);
     errorHandler(IAP_ERROR_ERASE);
   }
-  // 一次写入2Byte,循环512次,一次跳2个数
-  for(uint16_t i = 0; i < 1024; i+=2){
-    uint16_t data = rxBuf[i] | (rxBuf[i + 1] << 8);
-    HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, addr, data);
-    addr += 2;
+  // 一次写入2Byte, 循环512次, 一次跳2个数
+  // for(uint16_t i = 0; i < 1024; i+=2){
+  //   uint16_t data = rxBuf[i] | (rxBuf[i + 1] << 8);
+  //   HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, addr, data);
+  //   addr += 2;
+  // }
+  // 一次写入4Byte, 循环256次, 一次跳4个数
+  for(uint16_t i = 0; i < 1024; i+=4){
+    uint32_t data = rxBuf[i] | (rxBuf[i + 1] << 8) | (rxBuf[i + 2] << 16) | (rxBuf[i + 3] << 24);
+    HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr, data);
+    addr += 4;
   }
   memset(rxBuf, 0, IAP_RX_BUFF_MAXLENTH);
   HAL_FLASH_Lock();
@@ -74,6 +89,7 @@ static void writeFlash(void)
   packageCnt++;
 }
 
+// 清除iap跳转标志
 static void ramClear(void)
 {
   *(uint32_t*)IAP_MAGIC_ADDR = 0;
@@ -88,6 +104,8 @@ static void errorHandler(uint8_t errorCode)
   }
 }
 
+// true: 表示此次复位是通过app程序收到iap升级指令
+// false: 正常复位, 直接跳转
 bool IAP_RAM_Check(void)
 {
   uint32_t val = *(uint32_t*)IAP_MAGIC_ADDR;
@@ -120,7 +138,6 @@ void IAP_Run(void)
     // 清除标志后软件复位，自动重置所有外设，并跳转app
     ramClear();
     HAL_NVIC_SystemReset();
-
     return;
   }
   default:
