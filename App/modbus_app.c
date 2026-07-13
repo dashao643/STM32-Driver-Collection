@@ -180,10 +180,19 @@ bool Modbus_App_W25Q64(uint16_t basePage, uint16_t pageCnt)
   return true;
 }
 
-void Modbus_App_IAP(void)
+void Modbus_App_IAP_UART(void)
 {
   *(uint32_t*)IAP_MAGIC_ADDR = IAP_MAGIC_VAL;
   
   HAL_NVIC_SystemReset();
 }
 
+void Modbus_App_IAP_SPI(uint16_t basePage, uint16_t pageCnt)
+{
+  *(uint32_t*)IAP_MAGIC_ADDR = IAP_MAGIC_VAL;
+
+  uint32_t memoryVal = (pageCnt << 16) | basePage;
+  *(uint32_t*)IAP_SPI_INFO_ADDR = memoryVal;
+  
+  HAL_NVIC_SystemReset();
+}

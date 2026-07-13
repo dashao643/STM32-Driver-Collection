@@ -81,6 +81,7 @@ static bool funcCheck(void)
     case MODBUS_FUNC_WRITE_MULTI_COILS:
     case MODBUS_FUNC_WRITE_MULTI_REGS:
     case MODBUS_FUNC_W25Q64_WRITE:
+    case MODBUS_FUNC_W25Q64_IAP:
     case MODBUS_FUNC_IAP_HANDSHAKE:{
       modbus.record.isRead = false;
       break;
@@ -318,12 +319,20 @@ static void frameExecute(void)
     break;
   }
   case MODBUS_FUNC_W25Q64_WRITE:{
-    bool res = Modbus_App_W25Q64(modbus.record.regArr, modbus.record.regCnt);
-    printf("res=%d\n", res);
+    if(!Modbus_App_W25Q64(modbus.record.regArr, modbus.record.regCnt))
+      printf("w25q64 exec error\n");
     break;
   }
   case MODBUS_FUNC_IAP_HANDSHAKE:{
-    Modbus_App_IAP();
+    Modbus_App_IAP_UART();
+    break;
+  }
+  case MODBUS_FUNC_W25Q64_IAP:{
+    if(!Modbus_App_W25Q64(modbus.record.regArr, modbus.record.regCnt)) {
+      printf("w25q64 exec error\n");
+      return;
+    }
+    Modbus_App_IAP_SPI(modbus.record.regArr, modbus.record.regCnt);
     break;
   }
   }

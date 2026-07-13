@@ -25,12 +25,13 @@
 #define CONNECT_SERVER     0x03
 #define DISCONNECT_SERVER  0x04
 
-// #define REG_ADDR_MAX	     0x0006  // 最大寄存器地址
+// #define REG_ADDR_MAX	      0x0006   // 最大寄存器地址
 // #define REG_CNT_MAX        6       // 寄存器地址数量
 
 // IAP升级
-#define IAP_MAGIC_ADDR  0x20004FFC    // 标志存储地址，RAM最后四个字节
-#define IAP_MAGIC_VAL   0xA5A5A5A5
+#define IAP_MAGIC_ADDR        0x20004FFC  // 标志存储地址，RAM最后四个字节
+#define IAP_MAGIC_VAL         0xA5A5A5A5
+#define IAP_SPI_INFO_ADDR     0x20004FF8
 
 // W25Q64写操作
 #define W25Q64_PAGE_MAX       0x7FFF      // 页索引: 0 - 32768
@@ -46,6 +47,7 @@ uint16_t Modbus_App_Read_InputReg(uint16_t addr);
 void Modbus_App_Write_Coil(uint16_t addr, uint8_t value);
 bool Modbus_App_Write_Reg(uint16_t addr, const uint8_t value[]);
 bool Modbus_App_W25Q64(uint16_t basePage, uint16_t pageCnt);
-void Modbus_App_IAP(void);
+void Modbus_App_IAP_UART(void);
+void Modbus_App_IAP_SPI(uint16_t basePage, uint16_t pageCnt);
 
 #endif

@@ -41,6 +41,7 @@
 /********************************** 自定义功能码 **********************************/
 #define MODBUS_FUNC_W25Q64_WRITE        0x41    // 写w25q64FLASH                 // 支持
 #define MODBUS_FUNC_IAP_HANDSHAKE       0x42    // 进入升级模式                   // 支持
+#define MODBUS_FUNC_W25Q64_IAP          0x43    // 写w25q64FLASH并跳转bootloader  // 支持
 
 /********************************** 错误码 **********************************/
 #define MODBUS_FUNC_ERROR               0x01    // 非法功能码
