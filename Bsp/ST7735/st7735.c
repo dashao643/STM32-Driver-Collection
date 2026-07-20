@@ -1,4 +1,4 @@
-#include "stm32f1xx_hal.h"
+#include "stm32f4xx_hal.h"
 #include "st7735.h"
 #include "st7735_def.h"
 #include "st7735_font.h"
@@ -9,7 +9,12 @@
 #include <string.h>
 #include <stdio.h>
 
-// The MSB is transmitted first
+/*
+128 * 160
+RGB: 5 6 5 = 16
+默认为黑屏
+正常初始化后屏幕显示为黑屏且透光
+*/
 
 inline static void RES_Set(GPIO_PinState pinState);
 inline static void CS_Set(GPIO_PinState pinState);
@@ -22,19 +27,19 @@ static void setPixelWindow(uint8_t rowBegin, uint8_t colBegin, uint8_t rowEnd, u
 // 低有效
 inline static void RES_Set(GPIO_PinState pinState)
 {
- 	HAL_GPIO_WritePin(ST7735_RES_GPIO_Port, ST7735_RES_Pin, pinState);
+ 	HAL_GPIO_WritePin(ST7735_RST_GPIO_Port, ST7735_RST_Pin, pinState);
 }
 
 // 低有效(外部非静态函数调用)
 inline static void CS_Set(GPIO_PinState pinState)
 {
-  	HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, pinState);
+	HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, pinState);
 }
 
 // low: cmd high: data (或命令参数)
 inline static void DC_Set(GPIO_PinState pinState)
 {
-  	HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, pinState);
+	HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, pinState);
 }
 
 static void writeData(uint8_t data)
@@ -94,21 +99,21 @@ static void setPixelWindow(uint8_t rowBegin, uint8_t colBegin, uint8_t rowEnd, u
 void ST7735_Init(void)
 {
 /********************* 引脚初始状态 *********************/
-  	RES_Set(PIN_HIGH);
-  	CS_Set(PIN_HIGH);
-  	DC_Set(PIN_LOW);
+	RES_Set(PIN_HIGH);
+	CS_Set(PIN_HIGH);
+	DC_Set(PIN_LOW);
 
 /********************* 上电延时 *********************/
-  	HAL_Delay(50);
+	HAL_Delay(50);
 
 /********************* 开始通信 *********************/
-  	CS_Set(PIN_LOW);
+	CS_Set(PIN_LOW);
 
 /********************* RES复位 *********************/
-	RES_Set(PIN_LOW);
-  	Delay_Us(10);
-	RES_Set(PIN_HIGH);
-	HAL_Delay(5);
+	// RES_Set(PIN_LOW);
+	// Delay_Us(10);
+	// RES_Set(PIN_HIGH);
+	// HAL_Delay(5);
 
 /********************* 初始化指令 *********************/
 	writeCmd(ST7735_SLEEP_OUT);
@@ -117,7 +122,7 @@ void ST7735_Init(void)
  	writeCmd(ST7735_NORMAL_DISPLAY_MODE_ON);
 
  	writeCmd(ST7735_DISPLAY_INVERSION_OFF);
-  
+
  	writeCmd(ST7735_DISPLAY_ON);
 
  	writeCmd(ST7735_COLUMN_ADDRESS_SET);
@@ -154,7 +159,7 @@ void ST7735_Init(void)
 	writeCmd(ST7735_POWER_CONTROL_2); 
 	writeData(0xC5); 
 
-  	writeCmd(ST7735_POWER_CONTROL_3); 
+	writeCmd(ST7735_POWER_CONTROL_3); 
 	writeData(0x0A); 
 	writeData(0x00); 
 
@@ -179,7 +184,7 @@ void ST7735_Init(void)
 	writeData(0x02); 
 	writeData(0x10); 
 
-  	writeCmd(ST7735_GAMMA_NEG_POLARITY);
+	writeCmd(ST7735_GAMMA_NEG_POLARITY);
 	writeData(0x0f); 
 	writeData(0x1b); 
 	writeData(0x0f); 
@@ -212,7 +217,7 @@ void ST7735_Clear(void)
 	DC_Set(PIN_HIGH);
 
 	// 清屏显示为黑色
-	static uint8_t rowBuf[ST7735_COL_PIXEL * 2] = {0};
+	uint8_t rowBuf[ST7735_COL_PIXEL * 2] = {0};
 	// memset(rowBuf, 0xFF, sizeof(rowBuf));
 	
 	for(uint8_t row = 0; row < ST7735_ROW_PIXEL; row++){
@@ -258,7 +263,7 @@ void ST7735_ShowChar(uint8_t row, uint8_t col, char ch, uint16_t color)
 			rowBuf[pixelIdx * 2] = color >> 8;
 			rowBuf[pixelIdx * 2 + 1] = color;
 		}
-		chByte <<= 1;
+			chByte <<= 1;
 		}
 	}
 
@@ -307,16 +312,15 @@ void ST7735_ShowDecNumber(uint8_t row, uint8_t col, int32_t number, uint8_t numL
 	ST7735_ShowString(row, col, buf, ST7735_WHITE);
 }
 
-// 实现30帧动画: 33毫秒一张
-// 传输时长: 9ms一张
-// 支持 160_X_128 和 128_X_128
+// 传输时长: 9ms一张, 支持 128_X_160 和 128_X_128
+// 图片格式: MSB First
 void ST7735_ShowImage(const uint8_t *image, uint16_t imageWindow)
 {
 	uint16_t arrSize = imageWindow;
 
   CS_Set(PIN_LOW);
 
-	if(imageWindow == ST7735_IMAGE_160_X_128) {
+	if(imageWindow == ST7735_IMAGE_128_X_160) {
 		// arrSize = 40960; // (160 * 128 * 2)
 		setStartPixel(0,0);
 	}
@@ -324,10 +328,6 @@ void ST7735_ShowImage(const uint8_t *image, uint16_t imageWindow)
 		// arrSize = 32768;	// (128 * 128 * 2)
 		// 正方形图像,正中间显示
 		setPixelWindow(16, 0, 143, 127);
-	}
-	else if(imageWindow == ST7735_IMAGE_128_X_160) {
-		// arrSize = 40960;
-		// 修改显示方向
 	}
 	writeCmd(ST7735_MEMORY_WRITE);
 	DC_Set(PIN_HIGH);
@@ -378,13 +378,13 @@ void ST7735_ImageStream(const uint8_t *image, uint8_t curTimes, uint8_t sumTimes
   // CS_Set(PIN_HIGH);
 }
 
-// 固定一次传输W25Q64的一个扇区数据(4096)
+// 固定一次传输W25Q64的一个扇区数据(4096B)
 void ST7735_ImageStreamFix(const uint8_t *image, uint8_t curTimes, uint16_t imageWindow)
 {
 	uint8_t sumTimes = 0;
 	uint8_t beginRow = 0;
 
-	if(imageWindow == ST7735_IMAGE_160_X_128) {
+	if(imageWindow == ST7735_IMAGE_128_X_160) {
 		sumTimes = 10;
 		beginRow = 0 + (curTimes - 1) * 16;
 	}
@@ -404,4 +404,20 @@ void ST7735_ImageStreamFix(const uint8_t *image, uint8_t curTimes, uint16_t imag
 	HAL_SPI_Transmit(ST7735_HANDLE, image, 4096, ST7735_TX_TIMEOUT_MS);
 
   CS_Set(PIN_HIGH);
+}
+
+void ST7735_Scroll(void)
+{
+	// writeCmd(ST7735_SCROLL_AREA_SET);
+	// writeData(0x00);
+	// writeData(0x02);
+	// writeData(0x00);
+	// writeData(0xA0);
+	// writeData(0x00);
+	// writeData(0x00);
+
+	// writeCmd(ST7735_VERTICAL_SCROLL_START);
+	// writeData(0x00);
+	// writeData(0x50);
+	// writeCmd(ST7735_DISPLAY_INVERSION_CONTROL);
 }

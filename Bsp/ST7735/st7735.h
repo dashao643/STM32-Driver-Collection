@@ -5,17 +5,17 @@
 
 /*
 SPI配置:
-Transmit Only Master
+Transmit Only Master 模式: 只发送,不接收
 MSB First
 CPOL: Low
 CPHA: 1 Edge
+
+SCL -> SCK
+SDA -> MOSI
+CS  -> 推挽输出
+RST -> 推挽输出
+DC  -> 推挽输出
 */
-
-// 160 * 128
-// RGB: 5 6 5 = 16
-
-// 默认为黑屏
-// 正常初始化后屏幕显示为透光且黑屏
 
 #define ST7735_INSTANCE                 SPI1
 #define ST7735_HANDLE                   &hspi1
@@ -36,9 +36,8 @@ CPHA: 1 Edge
 #define ST7735_BLUE                     0x001F
 #define ST7735_YELLOW                   0xFFE0
 
-#define ST7735_IMAGE_160_X_128          40960       // 图片尺寸: 长160,宽128(竖屏显示)
-#define ST7735_IMAGE_128_X_128          32768       // 图片尺寸: 长128,宽128(128*128*2)
-#define ST7735_IMAGE_128_X_160          40960       // 图片尺寸: 长160,宽128(横屏显示)
+#define ST7735_IMAGE_128_X_160          40960       // 图片尺寸: 宽128,长160(原生竖屏)
+#define ST7735_IMAGE_128_X_128          32768       // 图片尺寸: 宽128,长128(128*128*2)
 
 void ST7735_Init(void);
 void ST7735_Clear(void);
@@ -50,5 +49,7 @@ void ST7735_ShowDecNumber(uint8_t row, uint8_t col, int32_t number, uint8_t numL
 void ST7735_ShowImage(const uint8_t *image, uint16_t imageWindow);
 void ST7735_ImageStream(const uint8_t *image, uint8_t curTimes, uint8_t sumTimes, uint16_t imageWindow);
 void ST7735_ImageStreamFix(const uint8_t *image, uint8_t curTimes, uint16_t imageWindow);
+
+void ST7735_Scroll(void);
 
 #endif
