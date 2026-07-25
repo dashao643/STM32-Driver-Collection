@@ -24,7 +24,7 @@
 21. max30102(数据不准)
 22. 上位机向flash传输文件
 23. ov7670摄像头(花屏)
-24. FatFS文件管理()
+24. SD卡  + FatFS文件管理()
 
 ## 未来：
 1. 物联网平台MQTT
@@ -32,9 +32,8 @@
 3. 以太网(W5500)
 4. 蓝牙,4G,LoRa,NB,Zigbee
 5. Ymodem协议OTA升级
-6. SD卡,IC卡
+6. IC卡
 8. DAC播放音频
-9. PCF8574 ,MPU6050
 10. IIS协议,USB协议
 12. FSMC协议
 13. RTOS操作系统
