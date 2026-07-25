@@ -1,6 +1,7 @@
+#include "stm32f4xx_hal.h"
 #include "modbus_app.h"
 #include "modbus.h"
-#include "stm32f1xx_hal.h"
+#include "general.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,7 +11,7 @@
 // #define DHT11
 #define MY_RTC
 // #define ESP8266
-#define W25Q64
+// #define W25Q64
 
 #ifdef LED
 #include "led.h"
@@ -32,12 +33,16 @@
 #include "w25q64.h"
 #endif
 
+static bool waitFrameTimeout(void) UNUSED_FUNC;
+
 // 检验寄存器地址
 bool Modbus_App_Check_Address(uint8_t func, uint16_t addr)
 {
   // if((addr == 0 )|| (addr > REG_ADDR_MAX)) return false;
+#ifdef W25Q64
   if(func == MODBUS_FUNC_W25Q64_WRITE && addr >= W25Q64_PAGE_CNT) return false;
-  else if(func == MODBUS_FUNC_IAP_HANDSHAKE && addr != 0x01) return false;
+#endif
+  if(func == MODBUS_FUNC_IAP_HANDSHAKE && addr != 0x01) return false;
 
   return true;
 }
@@ -47,9 +52,10 @@ bool Modbus_App_Check_RegCount(uint8_t func, uint16_t cnt)
 {
   // if((cnt == 0) || (cnt > REG_CNT_MAX)) return false;
   if(func == MODBUS_FUNC_WRITE_SINGLE_COIL && cnt != 1) return false;
-  else if(func == MODBUS_FUNC_IAP_HANDSHAKE && cnt != 1) return false;
-  else if(func == MODBUS_FUNC_W25Q64_WRITE && cnt >= W25Q64_PAGE_CNT) return false;
-
+  if(func == MODBUS_FUNC_IAP_HANDSHAKE && cnt != 1) return false;
+#ifdef W25Q64
+  if(func == MODBUS_FUNC_W25Q64_WRITE && cnt >= W25Q64_PAGE_CNT) return false;
+#endif
   return true;
 }
 
@@ -148,6 +154,7 @@ static bool waitFrameTimeout(void)
 // basePage: 0-65535
 bool Modbus_App_W25Q64(uint16_t basePage, uint16_t pageCnt)
 {
+#ifdef W25Q64
   uint8_t ack = W25Q64_ACK;
   uint8_t curTimes = 0;
 
@@ -176,8 +183,9 @@ bool Modbus_App_W25Q64(uint16_t basePage, uint16_t pageCnt)
 
   // 通知状态机继续推进到 REPLY → RESET
   Modbus_Get_UART()->frameEnd = true;
-
-  return true;
+  return true
+#endif
+  return false;
 }
 
 void Modbus_App_IAP_UART(void)
