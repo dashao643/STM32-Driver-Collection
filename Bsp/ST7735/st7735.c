@@ -378,7 +378,7 @@ void ST7735_ImageStream(const uint8_t *image, uint8_t curTimes, uint8_t sumTimes
   // CS_Set(PIN_HIGH);
 }
 
-// 固定一次传输W25Q64的一个扇区数据(4096B)
+// 固定一次传输W25Q64的一个扇区数据(4096B), curTimes: 1 - 8/10
 void ST7735_ImageStreamFix(const uint8_t *image, uint8_t curTimes, uint16_t imageWindow)
 {
 	uint8_t sumTimes = 0;
