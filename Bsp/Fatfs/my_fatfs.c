@@ -1,10 +1,13 @@
+#include "stm32f4xx_hal.h"
 #include "my_fatfs.h"
+#include "integer.h"
 #include "my_rtc.h"
 // #include "general.h"
 
 // CubeMX调用
 #include "fatfs.h"
 #include <stdint.h>
+#include <string.h>
 
 #define UART_DEBUG
 
@@ -13,12 +16,18 @@
 #endif
 
 // 选择物理存储介质和对应磁盘驱动编号(从0开始递增)
-#define W25Q64_DRIVE      0
-// #define SD_CARD_DRIVE     1
+// #define W25Q64_DRIVE      0
+#define SD_CARD_DRIVE     0
 
 #ifdef W25Q64_DRIVE
 #include "w25q64.h"
 #endif
+
+#define SECTOR_SIZE       512
+#define WORK_BUFF_SIZE    (4 * SECTOR_SIZE)
+// 挂载磁盘传入的工作区数组大小(更大的缓冲区能显著减少对存储介质的写入次数, 让格式化过程更快)
+
+static BYTE workBuf[WORK_BUFF_SIZE];
 
 static void printLog(const char* info)
 {
@@ -66,9 +75,15 @@ static void printInfo(const FILINFO* fileInfo)
 // 挂载一个驱动器, 第一次挂载失败则格式化
 bool Fatfs_Mount(void)
 {
-  if (f_mount(&USERFatFS, "0:", 1) != FR_OK) {
+  // F1: USERFatFS, F4: SDFatFS
+  if (f_mount(&SDFatFS, "0:", 1) != FR_OK) {
+    HAL_Delay(1000);
     // sdf=1: 开销小, 嵌入式设备. sfd=0: PC
-    FRESULT res = f_mkfs("0:", 0, 0);
+    // F1, 簇大小设置为0: 自动设置
+    // FRESULT res = f_mkfs("0:", 0, 0);
+    // F4, 不超过32GB容量, 使用 FM_FAT32, 工作区数组, 
+    FRESULT res = f_mkfs("0:", FM_FAT32, 0, workBuf,WORK_BUFF_SIZE);
+    
     if (res != FR_OK) {
       printLog("fatfs format fail");
       printErrorCode(res);
@@ -77,7 +92,9 @@ bool Fatfs_Mount(void)
     printLog("fatfs format success");
     return true;
   }
+
   printLog("disk mount success");
+
   return true;
 }
 
@@ -96,11 +113,11 @@ void Fatfs_GetDiskInfo(void)
   // 1,2,4,8,16,32,64,128
   printf("每簇扇区数: %d\n", fatfs->csize);
   printf("FAT表数量: %d\n", fatfs->n_fats);
-  printf("FAT表扇区数: %d\n", (int)fatfs->fsize);
-  printf("FAT条目数: %d\n", (int)fatfs->n_fatent);
-  printf("数据区起始扇区: %d\n", (int)fatfs->database);
-  printf("剩余簇数: %d\n", (int)nclst);
-  printf("剩余空间(字节): %d\n", (int)nclst * fatfs->csize * W25Q64_SECTOR_SIZE);
+  printf("FAT表扇区数: %lu\n", (unsigned long)fatfs->fsize);
+  printf("FAT条目数: %lu\n", (unsigned long)fatfs->n_fatent);
+  printf("数据区起始扇区: %lu\n", (unsigned long)fatfs->database);
+  printf("剩余簇数: %lu\n", (unsigned long)nclst);
+  printf("剩余空间(MB): %d\n", (int)((unsigned long long)nclst * fatfs->csize * SECTOR_SIZE / 1000000));
 #endif
 }
 
@@ -117,18 +134,24 @@ void Fatfs_ScanDir(const TCHAR* basePath)
 
   FILINFO fileInfo;
 
-  uint16_t index = 1;
+  uint16_t index = 0;
   while(1) {
     res = f_readdir(&dir, &fileInfo);
     // 出错或文件名为空表示已读完
     if (res != FR_OK || fileInfo.fname[0] == 0)
       break;
 
+    index++;
 #ifdef UART_DEBUG
     printf("-------item%d info-------\n", index);
 #endif
     printInfo(&fileInfo);
-    index++;
+  }
+
+  if(index == 0) {
+#ifdef UART_DEBUG
+    printf("directory is empty\n");
+#endif
   }
 
   f_closedir(&dir);
@@ -178,7 +201,7 @@ FA_CREATE_ALWAYS	0x08	    文件存在则覆盖, 不存在则创建(覆盖写入
 FA_OPEN_ALWAYS	  0x10	    文件存在则打开, 不存在则创建(追加写入)
 */
 
-// 
+// 追加写入文件
 void Fatfs_AppendWrite(const TCHAR* filePath, const TCHAR* content, UINT length)
 {
   FIL file;
@@ -205,6 +228,29 @@ void Fatfs_AppendWrite(const TCHAR* filePath, const TCHAR* content, UINT length)
 
   f_close(&file);
 }
+
+// 0:/src/main.c 写入hello world
+void Fatfs_WriteTest(void)
+{
+  f_mkdir("0:/src");
+
+  FIL file;
+  f_open(&file, "0:/src/main.c", FA_WRITE | FA_CREATE_ALWAYS);
+  char content[] = {
+    "#include <stdio.h>\n"
+    "\n"
+    "int main()\n"
+    "{\n"
+    "    printf(\"hello world!\\n\");\n"
+    "\n"
+    "    return 0;\n"
+    "}\n"
+  };
+  UINT resSize;
+  f_write(&file, content, strlen(content), &resSize);
+  f_close(&file);
+}
+
 /*---------------------------- BSP ----------------------------*/
 
 DRESULT Fatfs_ReadSector(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
