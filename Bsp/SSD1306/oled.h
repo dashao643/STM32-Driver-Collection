@@ -28,10 +28,11 @@ void OLED_ShowALL(void);
 void OLED_SetReverse(void);
 
 // 4行，16列
-void OLED_ShowChar(uint8_t x, uint8_t y, char ch);
-void OLED_ShowString(uint8_t x, uint8_t y, const char str[]);
-void OLED_ShowDecNumber(uint8_t x, uint8_t y, int32_t number, uint8_t numLen);
-void OLED_ShowHexNumber(uint8_t x, uint8_t y, const uint8_t data[], uint8_t size);
+void OLED_ShowChar(uint8_t row, uint8_t col, char ch);
+void OLED_ShowString(uint8_t row, uint8_t col, const char str[]);
+void OLED_ShowFonts(uint8_t row, uint8_t col, const char font[]);
+void OLED_ShowDecNumber(uint8_t row, uint8_t col, int32_t number, uint8_t numLen);
+void OLED_ShowHexNumber(uint8_t row, uint8_t col, const uint8_t data[], uint8_t size);
 
 void OLED_StrWriteLine(uint8_t row, const char str[]);
 void OLED_ShowImage(const uint8_t *image);
