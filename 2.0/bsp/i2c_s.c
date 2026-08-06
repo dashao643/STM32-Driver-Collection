@@ -1,25 +1,22 @@
 #include "stm32f1xx_hal.h"
 #include "general.h"
 
+#include "stdbool.h"
+
 #define I2C_DELAY_US      5
 #define I2C_TIMEOUT_US    50
 
+#define I2C_SCL_GPIO_Port       GPIOB
+#define I2C_SCL_Pin             GPIO_PIN_8
 
-#define I2C1_SCL_GPIO_Port     GPIOB
-#define KEY_2_Pin           GPIO_PIN_10
+#define I2C_SDA_GPIO_Port       GPIOB
+#define I2C_SDA_Pin             GPIO_PIN_9
 
-#define I2C1_SDA_GPIO_Port     GPIOB
-#define KEY_2_Pin           GPIO_PIN_10
-
-#ifdef I2C_SOFTWARE
-
-/********************* private *********************/
-
-#define SCL_HIGH()  HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_SET)
-#define SCL_LOW()   HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_RESET)
-#define SDA_HIGH()  HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_SET)
-#define SDA_LOW()   HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_RESET)
-#define SDA_READ()  HAL_GPIO_ReadPin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin)
+#define SCL_HIGH()  HAL_GPIO_WritePin(I2C_SCL_GPIO_Port, I2C_SCL_Pin, GPIO_PIN_SET)
+#define SCL_LOW()   HAL_GPIO_WritePin(I2C_SCL_GPIO_Port, I2C_SCL_Pin, GPIO_PIN_RESET)
+#define SDA_HIGH()  HAL_GPIO_WritePin(I2C_SDA_GPIO_Port, I2C_SDA_Pin, GPIO_PIN_SET)
+#define SDA_LOW()   HAL_GPIO_WritePin(I2C_SDA_GPIO_Port, I2C_SDA_Pin, GPIO_PIN_RESET)
+#define SDA_READ()  HAL_GPIO_ReadPin(I2C_SDA_GPIO_Port, I2C_SDA_Pin)
 
 static void start(void);
 static void stop(void);
@@ -37,9 +34,9 @@ static void start(void)
 {
     SDA_HIGH();
     SCL_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     SDA_LOW();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     SCL_LOW();
 }
 
@@ -48,9 +45,9 @@ static void stop(void)
 {
     SDA_LOW();
     SCL_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     SDA_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
 }
 
 // SDA先准备好数据,SDA默认高.拉高SCL发送数据
@@ -64,19 +61,19 @@ static void sendBit(uint8_t bit)
         SDA_HIGH();
 
     SCL_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     SCL_LOW();
     // SDA发完，释放SDA
     SDA_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
 }
 
 static uint8_t readBit(void)
 {
     SCL_LOW();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     SCL_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     uint8_t bit = SDA_READ();
     SCL_LOW();
 
@@ -99,9 +96,9 @@ static bool blockWaitAck(void)
 
     // 读取到高，继续循环阻塞，读取到低跳出while
     while (SDA_READ()) {
-        Delay_us(1);
+        Delay_Us(1);
         timeoutUs++;
-        if (timeoutUs > I2C_SOFTWARE_TIMEOUT_US) {
+        if (timeoutUs > I2C_TIMEOUT_US) {
             // printf("timout=%d\n",timeoutUs);
             SCL_LOW();
             stop();
@@ -117,7 +114,7 @@ static void sendAck(void)
 {
     SDA_LOW();
     SCL_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     SCL_LOW();
     SDA_HIGH();
 }
@@ -126,7 +123,7 @@ static void sendNAck(void)
 {
     SDA_HIGH();
     SCL_HIGH();
-    Delay_us(I2C_SOFTWARE_DELAY_US);
+    Delay_Us(I2C_DELAY_US);
     SCL_LOW();
 }
 
@@ -148,9 +145,26 @@ static uint8_t receiveByte(void)
     return byte;
 }
 
-#endif
-
 /********************* public *********************/
+
+void I2C_Init(void)
+{
+    GPIO_InitTypeDef gpio;
+
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pin = I2C_SCL_Pin;
+    gpio.Pull = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_MEDIUM;
+
+    HAL_GPIO_Init(I2C_SCL_GPIO_Port, &gpio);
+
+    gpio.Mode = GPIO_MODE_OUTPUT_OD;
+    gpio.Pin = I2C_SDA_Pin;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Speed = GPIO_SPEED_FREQ_MEDIUM;
+
+    HAL_GPIO_Init(I2C_SCL_GPIO_Port, &gpio);
+}
 
 /**
  * @brief 写I2C从机内存
@@ -162,7 +176,8 @@ static uint8_t receiveByte(void)
  * @param size 数据字节大小
  * @return HAL_StatusTypeDef 
  */
-HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, const uint8_t *data, uint16_t size)
+HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, 
+    uint8_t memAddSize, const uint8_t *data, uint16_t size)
 {
     start();
 
@@ -199,7 +214,8 @@ HAL_StatusTypeDef I2C_Mem_Write(uint8_t devAddress, uint16_t memAddress, uint8_t
     return HAL_OK;
 }
 
-HAL_StatusTypeDef I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, uint8_t memAddSize, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef I2C_Mem_Read(uint8_t devAddress, uint16_t memAddress, 
+    uint8_t memAddSize, uint8_t *data, uint16_t size)
 {
     start();
 

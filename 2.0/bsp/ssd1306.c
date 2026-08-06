@@ -6,9 +6,14 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#ifdef GB2312_FONT_LIBRARY
+#include "w25q64.h"
+#endif
+
 // #ifdef I2C_HARDWARE
 // #define SSD1306_INSTANCE            I2C1
 // #endif
+
 
 #if defined I2C_HARDWARE
 #include "i2c1.h"
@@ -68,8 +73,11 @@ static void writeCmdPos(uint8_t row, uint8_t col, uint8_t pageOffs)
 
 void SSD1306_Init(void)
 {
+#if defined I2C_HARDWARE
     I2C1_Init();
-    
+#elif defined I2C_SOFTWARE
+    I2C_Init();
+#endif
     HAL_Delay(100);
 
     writeCmd(0xAE); // 关闭显示
@@ -141,10 +149,8 @@ void SSD1306_SetReverse(void)
  */
 void SSD1306_ShowChar(uint8_t row, uint8_t col, char ch)
 {
-    if (row == 0 || row > 4)
-        return;
-    if (col == 0 || col > 16)
-        return;
+    if (row == 0 || row > 4) return;
+    if (col == 0 || col > 16) return;
 
     uint8_t *chIdx;
 
@@ -161,45 +167,19 @@ void SSD1306_ShowChar(uint8_t row, uint8_t col, char ch)
     writeData(chIdx + 8, 8);
 }
 
-// 显示字符串,创建字符串推荐不指定数组长度,或者手动加\0
 void SSD1306_ShowString(uint8_t row, uint8_t col, const char str[])
 {
-    if (str == NULL)
-        return;
-    if (row == 0 || row > 4)
-        return;
-    if (col == 0 || col > 16)
-        return;
+    if (str == NULL) return;
+    if (row == 0 || row > 4) return;
+    if (col == 0 || col > 16) return;
 
-    uint8_t i = 0;
-
-    while (str[i] != '\0') {
-        if (col + i > 16)
-            return;
-
-        SSD1306_ShowChar(row, col + i, str[i]);
-        i++;
-    }
-}
-
-void SSD1306_ShowFonts(uint8_t row, uint8_t col, const char font[])
-{
-    if (font == NULL)
-        return;
-    if (row == 0 || row > 4)
-        return;
-    if (col == 0 || col > 16)
-        return;
-
-    while (*font != '\0') {
-        if (col > 16)
-            return;
-
+    while (*str != '\0') {
+        if (col > 16) return;
         // 先看第 bit7 是否为 0, 若为 0 则以 ascii 字符显示
-        if (!(*font & 0x80)) {
-            SSD1306_ShowChar(row, col, *font);
+        if (!(*str & 0x80)) {
+            SSD1306_ShowChar(row, col, *str);
             col++;
-            font++;
+            str++;
             continue;
         }
 
@@ -208,7 +188,7 @@ void SSD1306_ShowFonts(uint8_t row, uint8_t col, const char font[])
 #if defined SSD1306_FONT_UTF8
         // 统计 utf8 中文所占字节数
         for (uint8_t i = 4; i < 8; i++) {
-            if ((font[0] >> i) & 0x01) {
+            if ((str[0] >> i) & 0x01) {
                 cellCnt = 8 - i;
                 break;
             }
@@ -217,11 +197,11 @@ void SSD1306_ShowFonts(uint8_t row, uint8_t col, const char font[])
         // GB2312 中文字节数固定为2
         cellCnt = 2;
 #endif
-
         bool find = false;
+
         for (uint8_t i = 0; i < CHINESE_FONT_COUNT; i++) {
             // 此文字匹配数组, 显示
-            if (memcmp(font, SSD1306_CHINESE_16x16[i].index, cellCnt) == 0) {
+            if (memcmp(str, SSD1306_CHINESE_16x16[i].index, cellCnt) == 0) {
                 writeCmdPos(row, col, 0);
                 writeData(SSD1306_CHINESE_16x16[i].cell, 16);
 
@@ -240,23 +220,62 @@ void SSD1306_ShowFonts(uint8_t row, uint8_t col, const char font[])
             writeCmdPos(row, col, 1);
             writeData(SSD1306_ERROR_FONT + 16, 16);
         }
-        // font 指针偏移 cellCnt 字节
-        font += cellCnt;
+        // str 指针偏移 cellCnt 字节
+        str += cellCnt;
         // 移动列指针
         col += 2;
     }
 }
 
+void SSD1306_ShowFont(uint8_t row, uint8_t col, const char font[])
+{
+#ifdef GB2312_FONT_LIBRARY
+    if (font == NULL) return;
+    if (row == 0 || row > 4) return;
+    if (col == 0 || col > 16) return;
+
+    while (*font != '\0') {
+        if (col > 16) return;
+
+        if (!(*font & 0x80)) {
+            SSD1306_ShowChar(row, col, *font);
+            col++;
+            font++;
+            continue;
+        }
+
+        uint8_t high = *font;
+        uint8_t low = *(font + 1);
+
+        uint8_t area = high - 0xA0;   // 区号 (1-94)
+        uint8_t pos  = low - 0xA0;    // 位号 (1-94)
+
+        // 每个区有 94 个汉字
+        uint32_t offset = ((area - 1) * 94 + (pos - 1)) * 32;
+
+        uint8_t cell[32];
+        W25Q64_ReadByte(offset / W25Q64_PAGE_SIZE, offset % W25Q64_PAGE_SIZE, cell, 32);
+
+        writeCmdPos(row, col, 0);
+        writeData(cell, 16);
+
+        writeCmdPos(row, col, 1);
+        writeData(cell + 16, 16);
+
+        font += 2;
+        col += 2;
+    }
+#endif
+}
+
 // 需要传入数据的位数，从低位开始显示，目的是更新显示区域 numLen: 1 - 11
 void SSD1306_ShowDecNumber(uint8_t row, uint8_t col, int32_t number, uint8_t numLen)
 {
-    if (row == 0 || row > 4)
-        return;
-    if (col == 0 || col > 16)
-        return;
-    if (numLen == 0)
-        return;
-    if (numLen > 11)
+    if (row == 0 || row > 4) return;
+    if (col == 0 || col > 16) return;
+    if (numLen == 0) return;
+
+    if (numLen > 11) 
         numLen = 11;
 
     char buf[12] = { 0 }; // int32_t 最大值 + 负号 + \0
@@ -276,12 +295,10 @@ void SSD1306_ShowDecNumber(uint8_t row, uint8_t col, int32_t number, uint8_t num
  */
 void SSD1306_ShowHexNumber(uint8_t row, uint8_t col, const uint8_t data[], uint8_t size)
 {
-    if (row == 0 || row > 4)
-        return;
-    if (col == 0 || col > 16)
-        return;
-    if (size == 0)
-        return;
+    if (row == 0 || row > 4) return;
+    if (col == 0 || col > 16) return;
+    if (size == 0) return;
+
     if (size > 5)
         size = 5;
 
@@ -290,34 +307,6 @@ void SSD1306_ShowHexNumber(uint8_t row, uint8_t col, const uint8_t data[], uint8
         snprintf(buf, sizeof(buf), "%02X", data[i]);
         SSD1306_ShowString(row, col + (i * 3), buf);
     }
-}
-
-// 一次性发送,连续写入一行(会清空一行中原有数据,适合按行显示的长数据)(经过测试, 耗时时间相同)
-void SSD1306_StrWriteLine(uint8_t row, const char str[])
-{
-    uint8_t topRow[128] = { 0 };
-    uint8_t bottomRow[128] = { 0 };
-
-    for (uint8_t col = 0; col < 16; col++) {
-        char ch = str[col];
-        if (ch == 0)
-            break;
-
-        uint8_t index = col * 8;
-        // 放上半字符
-        for (uint8_t j = 0; j < 8; j++) {
-            topRow[index + j] = SSD1306_ASCII_08x16[ch - ASCII_OFFSET][j];
-        }
-        // 放下半字符
-        for (uint8_t j = 0; j < 8; j++) {
-            bottomRow[index + j] = SSD1306_ASCII_08x16[ch - ASCII_OFFSET][j + 8];
-        }
-    }
-
-    writeCmdPos(row, 0, 0);
-    writeData(topRow, 128);
-    writeCmdPos(row, 0, 1);
-    writeData(bottomRow, 128);
 }
 
 void SSD1306_ShowImage(const uint8_t *image)
@@ -330,3 +319,30 @@ void SSD1306_ShowImage(const uint8_t *image)
         writeData(image + row * 128, 128);
     }
 }
+
+// void SSD1306_StrWriteLine(uint8_t row, const char str[])
+// {
+//     uint8_t topRow[128] = { 0 };
+//     uint8_t bottomRow[128] = { 0 };
+
+//     for (uint8_t col = 0; col < 16; col++) {
+//         char ch = str[col];
+//         if (ch == 0)
+//             break;
+
+//         uint8_t index = col * 8;
+//         // 放上半字符
+//         for (uint8_t j = 0; j < 8; j++) {
+//             topRow[index + j] = SSD1306_ASCII_08x16[ch - ASCII_OFFSET][j];
+//         }
+//         // 放下半字符
+//         for (uint8_t j = 0; j < 8; j++) {
+//             bottomRow[index + j] = SSD1306_ASCII_08x16[ch - ASCII_OFFSET][j + 8];
+//         }
+//     }
+
+//     writeCmdPos(row, 0, 0);
+//     writeData(topRow, 128);
+//     writeCmdPos(row, 0, 1);
+//     writeData(bottomRow, 128);
+// }

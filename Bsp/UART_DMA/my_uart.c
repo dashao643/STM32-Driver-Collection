@@ -51,8 +51,10 @@ void UART_IdleProcess_AT(const USART_TypeDef* Instance, My_UART_t *uart)
     __HAL_UART_CLEAR_IDLEFLAG(uart->handle);
 
     // 计算本次收到字节数（相对于当前DMA段的剩余长度）
+    uint16_t dmaRemain = __HAL_DMA_GET_COUNTER(uart->handle->hdmarx);
+
     uint16_t segmentSize = uart->rxMaxSize - uart->rxIdx;
-    uint16_t remaining = __HAL_DMA_GET_COUNTER(uart->handle->hdmarx);
+    
     uart->rxSize = segmentSize - remaining;
     uart->rxIdx += uart->rxSize;
 

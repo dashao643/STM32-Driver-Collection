@@ -6,11 +6,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-// #define SCL_PB6_SDA_PB7
-// #define SCL_PB8_SDA_PB9
-
-// PB8 ------> SCL
-// PB9 ------> SDA
+// #define SCL_PB6__SDA_PB7
+#define SCL_PB8__SDA_PB9
 
 #define I2C_TIMOUT_MS           200
 
@@ -37,21 +34,22 @@ void I2C1_MspInit(I2C_HandleTypeDef* hi2c)
 
     if(hi2c->Instance == I2C1) {
         __HAL_RCC_GPIOB_CLK_ENABLE();
-
-        /********************* PB8 SCL *********************/
-        /********************* PB9 SDA *********************/
+#if defined SCL_PB6__SDA_PB7
+        gpio.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+#elif defined SCL_PB8__SDA_PB9
         gpio.Pin = GPIO_PIN_8 | GPIO_PIN_9;
+#endif
         gpio.Mode = GPIO_MODE_AF_OD;
         gpio.Pull = GPIO_PULLUP;
         gpio.Speed = GPIO_SPEED_FREQ_HIGH;
         
         HAL_GPIO_Init(GPIOB, &gpio);
 
-// #if defined SCL_PB6_SDA_PB7
-        // __HAL_AFIO_REMAP_I2C1_DISABLE();
-// #elif defined SCL_PB8_SDA_PB9
+#if defined SCL_PB6__SDA_PB7
+        __HAL_AFIO_REMAP_I2C1_DISABLE();
+#elif defined SCL_PB8__SDA_PB9
         __HAL_AFIO_REMAP_I2C1_ENABLE();
-// #endif
+#endif
         __HAL_RCC_I2C1_CLK_ENABLE();
     }
 }
@@ -67,8 +65,3 @@ HAL_StatusTypeDef I2C1_Mem_Read(uint16_t devAddress, uint16_t memAddress,
 {
     return HAL_I2C_Mem_Read(&i2c1, devAddress, memAddress,  memAddSize, data, size, I2C_TIMOUT_MS);
 }
-
-// HAL_StatusTypeDef HAL_I2C_Mem_Write(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, 
-//     uint16_t MemAddSize, uint8_t *pData, uint16_t Size, uint32_t Timeout);
-// HAL_StatusTypeDef HAL_I2C_Mem_Read(I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, 
-//     uint16_t MemAddSize, uint8_t *pData, uint16_t Size, uint32_t Timeout);
