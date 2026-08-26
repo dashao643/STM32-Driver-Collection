@@ -13,13 +13,15 @@
 #define AT24C64_MAX_READ_SIZE         128       // 最大数据长度(4页大小)
 #define AT24C64_BLANK_BYTE            0xFF      // 空白字节
 
-HAL_StatusTypeDef AT24C64_Write_OneByte(uint16_t page, uint8_t addrInPage, uint8_t data);
-HAL_StatusTypeDef AT24C64_Write_Byte(uint16_t page, uint8_t addrInPage, const uint8_t *data, uint8_t size);
+HAL_StatusTypeDef AT24C64_Write_Byte(uint16_t page, uint8_t addrInPage, uint8_t data);
+HAL_StatusTypeDef AT24C64_Write_Bytes(uint16_t page, uint8_t addrInPage, const uint8_t *data, uint8_t size);
 HAL_StatusTypeDef AT24C64_Write_Page(uint16_t page, const uint8_t *data, uint8_t size);
 
 HAL_StatusTypeDef AT24C64_Read_Byte(uint16_t page, uint8_t addrInPage, uint8_t *data, uint8_t size);
 HAL_StatusTypeDef AT24C64_Read_Page(uint16_t page, uint8_t *data, uint8_t size);
 
 HAL_StatusTypeDef AT24C64_Erase_Page(uint16_t page);
+
+void AT24C64_WaitWriteInterval(void);
 
 #endif

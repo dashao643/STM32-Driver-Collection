@@ -1,5 +1,5 @@
-#include "at24c64.h"
 #include "stm32f1xx_hal.h"
+#include "at24c64.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -42,9 +42,9 @@ static bool isWriteBusy(bool isWrite)
  * @param data 单字节数据
  * @return HAL_StatusTypeDef 返回状态
  */
-HAL_StatusTypeDef AT24C64_Write_OneByte(uint16_t page, uint8_t addrInPage, uint8_t data)
+HAL_StatusTypeDef AT24C64_Write_Byte(uint16_t page, uint8_t addrInPage, uint8_t data)
 {
-  return AT24C64_Write_Byte(page, addrInPage, &data, 1);
+  return AT24C64_Write_Bytes(page, addrInPage, &data, 1);
 }
 
 /**
@@ -55,7 +55,7 @@ HAL_StatusTypeDef AT24C64_Write_OneByte(uint16_t page, uint8_t addrInPage, uint8
  * @param size 字节大小 1-32
  * @return HAL_StatusTypeDef 
  */
-HAL_StatusTypeDef AT24C64_Write_Byte(uint16_t page, uint8_t addrInPage, const uint8_t *data, uint8_t size)
+HAL_StatusTypeDef AT24C64_Write_Bytes(uint16_t page, uint8_t addrInPage, const uint8_t *data, uint8_t size)
 {
   if (size == 0) return HAL_ERROR;
   if (page >= AT24C64_PAGE_CNT) return HAL_ERROR;
@@ -76,7 +76,7 @@ HAL_StatusTypeDef AT24C64_Write_Byte(uint16_t page, uint8_t addrInPage, const ui
  */
 HAL_StatusTypeDef AT24C64_Write_Page(uint16_t page, const uint8_t *data, uint8_t size)
 {
-  return AT24C64_Write_Byte(page, 0, data, size);
+  return AT24C64_Write_Bytes(page, 0, data, size);
 }
 
 /**
@@ -112,4 +112,9 @@ HAL_StatusTypeDef AT24C64_Erase_Page(uint16_t page)
   memset(buf, AT24C64_BLANK_BYTE, AT24C64_PAGE_SIZE);
 
   return AT24C64_Write_Page(page, buf, AT24C64_PAGE_SIZE);
+}
+
+void AT24C64_WaitWriteInterval(void)
+{
+  HAL_Delay(AT24C64_WRITE_INTERVAL_MS);
 }

@@ -1,6 +1,7 @@
-#include "at24c64.h"
-#include "at24c64_app.h"
+#include "stm32f1xx_hal.h"
 #include "stm32f1xx_hal_def.h"
+#include "at24c64_app.h"
+#include "at24c64.h"
 
 #include <stdint.h>
 #include <stdio.h>
