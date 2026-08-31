@@ -25,8 +25,8 @@
 
 #define SECTOR_SIZE       512
 #define WORK_BUFF_SIZE    (4 * SECTOR_SIZE)
-// 挂载磁盘传入的工作区数组大小(更大的缓冲区能显著减少对存储介质的写入次数, 让格式化过程更快)
 
+// 挂载磁盘传入的工作区数组大小(更大的缓冲区能显著减少对存储介质的写入次数, 让格式化过程更快)
 static BYTE workBuf[WORK_BUFF_SIZE];
 
 static void printLog(const char* info)
@@ -75,8 +75,8 @@ static void printInfo(const FILINFO* fileInfo)
 // 挂载一个驱动器, 第一次挂载失败则格式化
 bool Fatfs_Mount(void)
 {
-  // F1: USERFatFS, F4: SDFatFS
-  if (f_mount(&SDFatFS, "0:", 1) != FR_OK) {
+  // F1: USERFatFS, F4: SDFatFS / USBHFatFS
+  if (f_mount(&USBHFatFS, "0:", 1) != FR_OK) {
     HAL_Delay(1000);
     // sdf=1: 开销小, 嵌入式设备. sfd=0: PC
     // F1, 簇大小设置为0: 自动设置
@@ -329,3 +329,14 @@ DWORD Fatfs_GetTimestamp(void)
          (DWORD)time.Minutes << 5 |
          (DWORD)time.Seconds >> 1;
 }
+
+// VBUS -> 5V
+// DP -> D+
+// DM -> D-
+// 设备连接 → 复位 → 分配地址 → 获取描述符 → 配置 → MSC 类初始化 → 获取 LUN 信息
+// 等待 USB MSC 外设就绪, 执行 Fatfs_Mount()
+// while(1) {
+//   MX_USB_HOST_Process();
+//   if(Appli_state == APPLICATION_READY)
+//     break;
+// } 

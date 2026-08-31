@@ -1,5 +1,5 @@
-#ifndef __MY_FATFS_H__
-#define __MY_FATFS_H__
+#ifndef MY_FATFS_H
+#define MY_FATFS_H
 
 // 调用接口
 #include "ff.h"
